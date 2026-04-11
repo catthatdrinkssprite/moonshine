@@ -85,10 +85,10 @@ local Library do
         },
 
         Images = {
-            ["Saturation"] = {"Saturation.png", "https://github.com/CatThatDrinksSprite/moonshine/libraries/scoot/images/blob/main/saturation.png?raw=true" },
-            ["Value"] = { "Value.png", "https://github.com/CatThatDrinksSprite/moonshine/libraries/scoot/images/blob/main/value.png?raw=true" },
-            ["Hue"] = { "Hue.png", "https://github.com/CatThatDrinksSprite/moonshine/libraries/scoot/images/blob/main/horizontalhue.png?raw=true" },
-            ["Checkers"] = { "Checkers.png", "https://github.com/CatThatDrinksSprite/moonshine/libraries/scoot/sametexe001/images/blob/main/checkers.png?raw=true" },
+            ["Saturation"] = {"Saturation.png", "https://github.com/CatThatDrinksSprite/moonshine/blob/main/libraries/scoot/images/saturation.png?raw=true" },
+            ["Value"] = { "Value.png", "https://github.com/CatThatDrinksSprite/moonshine/blob/main/libraries/scoot/images/value.png?raw=true" },
+            ["Hue"] = { "Hue.png", "https://github.com/CatThatDrinksSprite/moonshine/blob/main/libraries/scoot/images/horizontalhue.png?raw=true" },
+            ["Checkers"] = { "Checkers.png", "https://github.com/CatThatDrinksSprite/moonshine/blob/main/libraries/scoot/images/checkers.png?raw=true" },
         },
 
         -- Ignore below
@@ -772,7 +772,7 @@ local Library do
         end
 
         CustomFont:New("Monaco", 400, "Regular", {
-            Url = "https://github.com/CatThatDrinksSprite/moonshine/libraries/scoot/fonts/luas/raw/refs/heads/main/fonts/Monaco.ttf"
+            Url = "https://github.com/CatThatDrinksSprite/moonshine/raw/refs/heads/main/libraries/scoot/fonts/Monaco.ttf"
         })
 
         Library.Font = CustomFont:Get("Monaco")
@@ -5149,7 +5149,7 @@ local Library do
                 ScaleType = Enum.ScaleType.Fit,
                 BorderColor3 = FromRGB(0, 0, 0),
                 AnchorPoint = Vector2New(0.5, 0),
-                Image = "rbxassetid://" .. Window.Logo,
+                Image = Window.Logo,
                 BackgroundTransparency = 1,
                 Position = UDim2New(0.5, 0, 0, 12),
                 Size = UDim2New(0, 75, 0, 75),
