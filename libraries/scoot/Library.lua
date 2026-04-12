@@ -3659,7 +3659,8 @@ local Library do
             end
 
             function Colorpicker:Get()
-                return Color3.fromRGB(Colorpicker.Hue * 255, Colorpicker.Saturation * 255, Colorpicker.Value * 255)
+                local HSV = Color3.fromHSV(Colorpicker.Hue, Colorpicker.Saturation, Colorpicker.Value)
+                return Color3.fromRGB(HSV.R * 255, HSV.G * 255, HSV.B * 255)
             end
             
             function Colorpicker:Set(Color, Alpha)
