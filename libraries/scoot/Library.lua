@@ -3657,11 +3657,6 @@ local Library do
                     Library:SafeCall(Data.Callback, Colorpicker.Color, Colorpicker.Alpha)
                 end
             end
-
-            function Colorpicker:Get()
-                local HSV = Color3.fromHSV(Colorpicker.Hue, Colorpicker.Saturation, Colorpicker.Value)
-                return Color3.fromRGB(HSV.R, HSV.G, HSV.B)
-            end
             
             function Colorpicker:Set(Color, Alpha)
                 if type(Color) == "table" then

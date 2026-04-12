@@ -23,19 +23,6 @@ do
                     Default = false
                 })
 
-                local TeamColors = NameESP:Toggle({
-                    Name = "Team Colors",
-                    Flag = "NameESPTeamColors",
-                    Default = true
-                })
-
-                local Color = Enabled:Colorpicker({
-                    Name = "Color",
-                    Flag = "NameESPColor",
-                    Default = Library.Theme.Accent,
-                    Alpha = 0
-                })
-
                 local function ApplyNameESP(Character)
                     if game:GetService("Players"):GetPlayerFromCharacter(Character) then
                         local Player = game:GetService("Players"):GetPlayerFromCharacter(Character)
@@ -47,17 +34,12 @@ do
                         Text.OutlineColor = Color3.fromRGB(0, 0, 0)
 
                         local Render = game:GetService("RunService").RenderStepped:Connect(function()
-                            if TeamColors:Get() == true then
-                                Text.Color = Player.TeamColor.Color
-                            else
-                                Text.Color = Color:Get()
-                            end
-                            
                             local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(Character.HumanoidRootPart.Position)
                             if onscreen then
                                 Text.Position = Vector2.new(pos.X, pos.Y)
                                 Text.Text = Character.Name
                                 Text.Visible = Enabled:Get()
+                                Text.Color = Player.TeamColor.Color
                             else
                                 Text.Visible = false
                             end
