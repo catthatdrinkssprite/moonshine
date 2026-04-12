@@ -3658,6 +3658,10 @@ local Library do
                 end
             end
 
+            function Colorpicker:Get()
+                return Color3.fromRGB(Colorpicker.Hue * 255, Colorpicker.Saturation * 255, Colorpicker.Value * 255)
+            end
+            
             function Colorpicker:Set(Color, Alpha)
                 if type(Color) == "table" then
                     Color = FromRGB(Color[1], Color[2], Color[3])
