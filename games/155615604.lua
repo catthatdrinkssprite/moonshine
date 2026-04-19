@@ -5,6 +5,8 @@ local Window = Library:Window({
     FadeTime = 0.3,
 })
 
+Library.MenuKeybind = tostring(Enum.KeyCode.Delete)
+
 local Watermark = Library:Watermark("moonshine | 155615604.lua")
 local KeybindList = Library:KeybindList()
 
@@ -397,144 +399,7 @@ do
 
     do
         do
-            local SpeedSection = MovementPage:Section({Name = "Speed", Side = 1}) do
-                local SpeedState = {
-                    Enabled = false,
-                    PrisonSpeed = 50,
-                    PrisonJump = 25,
-                    OutsideSpeed = 100,
-                    OutsideJump = 50
-                }
-
-                local subRegions = {
-                    {cx=752.77,  cz=2571.80, hx=109.93/2, hz=13.60/2},
-                    {cx=701.15,  cz=2313.70, hx=69.10/2,  hz=163.00/2},
-                    {cx=917.30,  cz=2392.60, hx=107.00/2, hz=28.00/2},
-                    {cx=830.30,  cz=2242.55, hx=58.00/2,  hz=34.10/2},
-                    {cx=748.90,  cz=2340.60, hx=59.40/2,  hz=109.20/2},
-                    {cx=799.10,  cz=2299.00, hx=14.00/2,  hz=33.99/2},
-                    {cx=826.69,  cz=2338.60, hx=51.19/2,  hz=12.00/2},
-                    {cx=799.65,  cz=2269.23, hx=12.90/2,  hz=21.50/2},
-                    {cx=765.36,  cz=2247.57, hx=59.32/2,  hz=64.82/2},
-                    {cx=850.20,  cz=2571.80, hx=23.20/2,  hz=13.60/2},
-                    {cx=779.80,  cz=2479.80, hx=164.00/2, hz=170.40/2},
-                    {cx=983.35,  cz=2315.15, hx=31.10/2,  hz=58.90/2},
-                    {cx=916.50,  cz=2225.40, hx=99.00/2,  hz=38.00/2},
-                    {cx=889.80,  cz=2361.60, hx=220.00/2, hz=34.00/2},
-                    {cx=915.80,  cz=2456.60, hx=64.00/2,  hz=100.00/2},
-                    {cx=820.80,  cz=2386.60, hx=82.00/2,  hz=16.00/2},
-                    {cx=916.90,  cz=2294.50, hx=98.20/2,  hz=100.20/2},
-                    {cx=836.95,  cz=2296.10, hx=61.70/2,  hz=73.00/2},
-                    {cx=872.30,  cz=2463.60, hx=19.00/2,  hz=62.00/2},
-                    {cx=959.30,  cz=2463.60, hx=19.00/2,  hz=62.00/2},
-                }
-                local prison = {cx=773.62, cz=2327.43, hx=563.37/2, hz=540.30/2}
-
-                local function inBox(x, z, r)
-                    return math.abs(x - r.cx) <= r.hx and math.abs(z - r.cz) <= r.hz
-                end
-
-                local function isInSubRegion(x, z)
-                    for _, r in ipairs(subRegions) do
-                        if inBox(x, z, r) then return true end
-                    end
-                    return false
-                end
-
-                SpeedSection:Toggle({
-                    Name = "Enabled",
-                    Flag = "SpeedEnabled",
-                    Default = false,
-                    Callback = function(v) SpeedState.Enabled = v end
-                })
-
-                SpeedSection:Slider({
-                    Name = "Prison Speed",
-                    Flag = "SpeedPrison",
-                    Min = 16,
-                    Max = 200,
-                    Default = 50,
-                    Decimals = 1,
-                    Callback = function(v) SpeedState.PrisonSpeed = v end
-                })
-
-                SpeedSection:Slider({
-                    Name = "Prison Jump",
-                    Flag = "SpeedPrisonJump",
-                    Min = 7,
-                    Max = 100,
-                    Default = 25,
-                    Decimals = 1,
-                    Callback = function(v) SpeedState.PrisonJump = v end
-                })
-
-                SpeedSection:Slider({
-                    Name = "Outside Speed",
-                    Flag = "SpeedOutside",
-                    Min = 16,
-                    Max = 200,
-                    Default = 100,
-                    Decimals = 1,
-                    Callback = function(v) SpeedState.OutsideSpeed = v end
-                })
-
-                SpeedSection:Slider({
-                    Name = "Outside Jump",
-                    Flag = "SpeedOutsideJump",
-                    Min = 7,
-                    Max = 100,
-                    Default = 50,
-                    Decimals = 1,
-                    Callback = function(v) SpeedState.OutsideJump = v end
-                }) do
-                    local Players = game:GetService("Players")
-                    local LocalPlayer = Players.LocalPlayer
-
-                    local function SetupSpeed(Character)
-                        local Humanoid = Character:WaitForChild("Humanoid")
-                        local RootPart = Character:WaitForChild("HumanoidRootPart")
-                        local originalSpeed = Humanoid.WalkSpeed
-                        local originalJump = Humanoid.JumpHeight
-
-                        task.spawn(function()
-                            local Jump = Humanoid:GetPropertyChangedSignal("Jump")
-                            task.wait(1)
-                            for _, Connection in getconnections(Jump) do
-                                Connection:Disable()
-                            end
-                        end)
-
-                        task.spawn(function()
-                            while Character and Character.Parent and Humanoid.Health > 0 do
-                                task.wait()
-                                if SpeedState.Enabled then
-                                    local x, z = RootPart.Position.X, RootPart.Position.Z
-                                    if isInSubRegion(x, z) then
-                                        Humanoid.WalkSpeed = 32
-                                        Humanoid.JumpHeight = originalJump
-                                    elseif inBox(x, z, prison) then
-                                        Humanoid.WalkSpeed = SpeedState.PrisonSpeed
-                                        Humanoid.JumpHeight = SpeedState.PrisonJump
-                                    else
-                                        Humanoid.WalkSpeed = SpeedState.OutsideSpeed
-                                        Humanoid.JumpHeight = SpeedState.OutsideJump
-                                    end
-                                else
-                                    Humanoid.WalkSpeed = originalSpeed
-                                    Humanoid.JumpHeight = originalJump
-                                end
-                            end
-                        end)
-                    end
-
-                    LocalPlayer.CharacterAdded:Connect(SetupSpeed)
-                    if LocalPlayer.Character then
-                        SetupSpeed(LocalPlayer.Character)
-                    end
-                end
-            end
-
-            local NoclipSection = MovementPage:Section({Name = "Noclip", Side = 2}) do
+            local NoclipSection = MovementPage:Section({Name = "Noclip", Side = 1}) do
                 local NoclipEnabled = NoclipSection:Toggle({
                     Name = "Enabled",
                     Flag = "NoclipEnabled",
@@ -982,6 +847,76 @@ do
                     else
                         for player, _ in pairs(FlaggedPlayers) do
                             CleanupPlayer(player)
+                        end
+                    end
+                end)
+            end
+        end
+    end
+
+    do
+        local ArrestAura = MiscPage:Section({Name = "Arrest Aura", Side = 1}) do
+            local Enabled = ArrestAura:Toggle({
+                Name = "Enabled",
+                Flag = "ArrestAuraEnabled",
+                Default = false
+            }) do
+                local Players = game:GetService("Players")
+                local LocalPlayer = Players.LocalPlayer
+                local ArrestRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ArrestPlayer")
+
+                game.RunService.RenderStepped:Connect(function()
+                    if Enabled:Get() ~= true then return end
+                    local character = LocalPlayer.Character
+                    if not character then return end
+                    local rootPart = character:FindFirstChild("HumanoidRootPart")
+                    if not rootPart then return end
+
+                    for _, player in pairs(Players:GetPlayers()) do
+                        if player == LocalPlayer then continue end
+                        local targetChar = player.Character
+                        if not targetChar then continue end
+                        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+                        if not targetRoot then continue end
+                        if (rootPart.Position - targetRoot.Position).Magnitude <= 10 then
+                            pcall(function()
+                                ArrestRemote:InvokeServer(player, 1)
+                            end)
+                        end
+                    end
+                end)
+            end
+        end
+    end
+
+    do
+        local FistAura = MiscPage:Section({Name = "Fist Aura", Side = 2}) do
+            local Enabled = FistAura:Toggle({
+                Name = "Enabled",
+                Flag = "FistAuraEnabled",
+                Default = false
+            }) do
+                local Players = game:GetService("Players")
+                local LocalPlayer = Players.LocalPlayer
+                local MeleeRemote = game:GetService("ReplicatedStorage"):WaitForChild("meleeEvent")
+
+                game.RunService.RenderStepped:Connect(function()
+                    if Enabled:Get() ~= true then return end
+                    local character = LocalPlayer.Character
+                    if not character then return end
+                    local rootPart = character:FindFirstChild("HumanoidRootPart")
+                    if not rootPart then return end
+
+                    for _, player in pairs(Players:GetPlayers()) do
+                        if player == LocalPlayer then continue end
+                        local targetChar = player.Character
+                        if not targetChar then continue end
+                        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+                        if not targetRoot then continue end
+                        if (rootPart.Position - targetRoot.Position).Magnitude <= 10 then
+                            pcall(function()
+                                MeleeRemote:FireServer(player, 1, 1)
+                            end)
                         end
                     end
                 end)
