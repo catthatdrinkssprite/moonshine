@@ -444,6 +444,53 @@ do
                     end)
                 end
             end
+
+            local InfJumpSection = MovementPage:Section({Name = "Infinite Jump", Side = 2}) do
+                local InfJumpEnabled = InfJumpSection:Toggle({
+                    Name = "Enabled",
+                    Flag = "InfJumpEnabled",
+                    Default = false
+                }) do
+                    local LocalPlayer = game:GetService("Players").LocalPlayer
+                    local UserInputService = game:GetService("UserInputService")
+                    local infJumpConn = nil
+                    local debounce = false
+
+                    local function EnableInfJump()
+                        if infJumpConn then return end
+                        infJumpConn = UserInputService.JumpRequest:Connect(function()
+                            if not debounce then
+                                debounce = true
+                                local character = LocalPlayer.Character
+                                if character then
+                                    local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+                                    if humanoid then
+                                        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                                    end
+                                end
+                                task.wait()
+                                debounce = false
+                            end
+                        end)
+                    end
+
+                    local function DisableInfJump()
+                        if infJumpConn then
+                            infJumpConn:Disconnect()
+                            infJumpConn = nil
+                        end
+                        debounce = false
+                    end
+
+                    game.RunService.RenderStepped:Connect(function()
+                        if InfJumpEnabled:Get() == true then
+                            EnableInfJump()
+                        else
+                            DisableInfJump()
+                        end
+                    end)
+                end
+            end
         end
     end
     
