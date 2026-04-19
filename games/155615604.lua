@@ -166,7 +166,11 @@ do
                     Flag = "SilentAimTeams",
                     Multi = true,
                     Items = {"Guards", "Inmates", "Criminals"},
-                    Callback = function(v) SilentAimState.Teams = v end
+                    Callback = function(v)
+                        local set = {}
+                        for _, name in pairs(v) do set[name] = true end
+                        SilentAimState.Teams = set
+                    end
                 })
 
                 SilentAimSection:Dropdown({
@@ -174,7 +178,11 @@ do
                     Flag = "SilentAimInmateTypes",
                     Multi = true,
                     Items = {"Regular", "Aggressive", "Arrestable"},
-                    Callback = function(v) SilentAimState.InmateTypes = v end
+                    Callback = function(v)
+                        local set = {}
+                        for _, name in pairs(v) do set[name] = true end
+                        SilentAimState.InmateTypes = set
+                    end
                 })
 
                 SilentAimSection:Toggle({
@@ -442,7 +450,11 @@ do
                     Flag = "ESPFilterTeams",
                     Multi = true,
                     Items = {"Guards", "Inmates", "Criminals"},
-                    Callback = function(v) ESPFilterState.Teams = v end
+                    Callback = function(v)
+                        local set = {}
+                        for _, name in pairs(v) do set[name] = true end
+                        ESPFilterState.Teams = set
+                    end
                 })
 
                 ESPFilters:Dropdown({
@@ -450,7 +462,11 @@ do
                     Flag = "ESPFilterInmateTypes",
                     Multi = true,
                     Items = {"Regular", "Aggressive", "Arrestable"},
-                    Callback = function(v) ESPFilterState.InmateTypes = v end
+                    Callback = function(v)
+                        local set = {}
+                        for _, name in pairs(v) do set[name] = true end
+                        ESPFilterState.InmateTypes = set
+                    end
                 })
             end
 
@@ -765,19 +781,14 @@ do
                             if animator then
                                 for _, track in pairs(animator:GetPlayingAnimationTracks()) do
                                     if track.Animation and track.Animation.AnimationId == "rbxassetid://215384594" then
+                                        track:Stop(0)
                                         FlaggedPlayers[player] = true
-                                        animator:Destroy()
-                                        break
                                     end
                                 end
                             end
 
                             if FlaggedPlayers[player] then
                                 ApplyHighlight(character)
-                                local newAnimator = humanoid:FindFirstChildOfClass("Animator")
-                                if newAnimator then
-                                    newAnimator:Destroy()
-                                end
                             end
                         end
                     else
