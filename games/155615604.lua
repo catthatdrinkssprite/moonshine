@@ -84,6 +84,183 @@ do
             end
         end
     end
+
+    do
+        local AimbotSubPage = CombatPage:SubPage({Name = "Aimbot", Columns = 2})
+
+        do
+            local SilentAimSection = AimbotSubPage:Section({Name = "Silent Aim", Side = 1}) do
+                local SilentAimEnabled = SilentAimSection:Toggle({
+                    Name = "Enabled",
+                    Flag = "SilentAimEnabled",
+                    Default = false
+                })
+
+                local FoVCircleEnabled = SilentAimSection:Toggle({
+                    Name = "FoV Circle",
+                    Flag = "SilentAimFoVEnabled",
+                    Default = false
+                })
+
+                local TracerEnabled = SilentAimSection:Toggle({
+                    Name = "Tracer",
+                    Flag = "SilentAimTracerEnabled",
+                    Default = false
+                })
+
+                local Radius = SilentAimSection:Slider({
+                    Name = "Radius",
+                    Flag = "SilentAimRadius",
+                    Min = 1,
+                    Suffix = "px",
+                    Max = 500,
+                    Default = 130,
+                    Decimals = 1
+                })
+
+                local Bone = SilentAimSection:Dropdown({
+                    Name = "Bone",
+                    Flag = "SilentAimBone",
+                    Default = "Head",
+                    Multi = false,
+                    Items = {"Head", "HumanoidRootPart"}
+                })
+
+                local WallCheck = SilentAimSection:Toggle({
+                    Name = "Wall Check",
+                    Flag = "SilentAimWallCheck",
+                    Default = false
+                })
+
+                local TeamCheck = SilentAimSection:Toggle({
+                    Name = "Team Check",
+                    Flag = "SilentAimTeamCheck",
+                    Default = false
+                })
+
+                local DeathCheck = SilentAimSection:Toggle({
+                    Name = "Death Check",
+                    Flag = "SilentAimDeathCheck",
+                    Default = true
+                }) do
+                    local Camera = workspace.CurrentCamera
+                    local Players = game:GetService("Players")
+                    local LocalPlayer = Players.LocalPlayer
+                    local UserInputService = game:GetService("UserInputService")
+
+                    local FoVCircle = Drawing.new("Circle")
+                    FoVCircle.Thickness = 1
+                    FoVCircle.NumSides = 100
+                    FoVCircle.Filled = false
+                    FoVCircle.Visible = false
+                    FoVCircle.ZIndex = 999
+                    FoVCircle.Transparency = 1
+
+                    local Tracer = Drawing.new("Line")
+                    Tracer.Thickness = 1
+                    Tracer.Visible = false
+                    Tracer.ZIndex = 999
+                    Tracer.Transparency = 1
+
+                    local function getClosestPlayer()
+                        local closestPart = nil
+                        local closestDist = Radius:Get()
+                        local mousePos = UserInputService:GetMouseLocation()
+                        local boneName = Bone:Get()
+
+                        for _, player in pairs(Players:GetPlayers()) do
+                            if player == LocalPlayer then continue end
+
+                            local character = player.Character
+                            if not character then continue end
+
+                            local humanoid = character:FindFirstChild("Humanoid")
+                            if DeathCheck:Get() and (not humanoid or humanoid.Health <= 0) then continue end
+
+                            if TeamCheck:Get() and player.Team == LocalPlayer.Team then continue end
+
+                            local targetPart = character:FindFirstChild(boneName)
+                            if not targetPart then continue end
+
+                            if WallCheck:Get() then
+                                local localChar = LocalPlayer.Character
+                                if localChar then
+                                    local parts = Camera:GetPartsObscuringTarget({targetPart.Position}, {localChar, character})
+                                    if #parts > 0 then continue end
+                                end
+                            end
+
+                            local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                            if not onScreen then continue end
+
+                            local dist = (mousePos - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                            if dist < closestDist then
+                                closestDist = dist
+                                closestPart = targetPart
+                            end
+                        end
+
+                        return closestPart
+                    end
+
+                    game.RunService.RenderStepped:Connect(function()
+                        Camera = workspace.CurrentCamera
+                        local mousePos = UserInputService:GetMouseLocation()
+
+                        FoVCircle.Position = mousePos
+                        FoVCircle.Radius = Radius:Get()
+                        FoVCircle.Color = Library.Theme.Accent
+                        FoVCircle.Visible = SilentAimEnabled:Get() and FoVCircleEnabled:Get()
+
+                        if SilentAimEnabled:Get() and TracerEnabled:Get() then
+                            local target = getClosestPlayer()
+                            if target then
+                                local screenPos, onScreen = Camera:WorldToViewportPoint(target.Position)
+                                if onScreen then
+                                    Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                                    Tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                                    Tracer.Color = Library.Theme.Accent
+                                    Tracer.Visible = true
+                                else
+                                    Tracer.Visible = false
+                                end
+                            else
+                                Tracer.Visible = false
+                            end
+                        else
+                            Tracer.Visible = false
+                        end
+                    end)
+
+                    local oldNamecall
+                    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+                        local method = getnamecallmethod()
+                        local args = {...}
+
+                        if SilentAimEnabled:Get() and not checkcaller() and self == workspace then
+                            if method == "Raycast" then
+                                local origin = args[1]
+                                local target = getClosestPlayer()
+                                if target then
+                                    args[2] = (target.Position - origin).Unit * 1000
+                                    return oldNamecall(self, unpack(args))
+                                end
+                            elseif method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRayWithWhitelist" or method == "FindPartOnRay" then
+                                local ray = args[1]
+                                local target = getClosestPlayer()
+                                if target then
+                                    args[1] = Ray.new(ray.Origin, (target.Position - ray.Origin).Unit * 1000)
+                                    return oldNamecall(self, unpack(args))
+                                end
+                            end
+                        end
+
+                        return oldNamecall(self, ...)
+                    end))
+                end
+            end
+        end
+    end
     
     do
         local ESPSubPage = VisualsPage:SubPage({Name = "ESP", Columns = 2})
