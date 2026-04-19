@@ -175,14 +175,14 @@ do
                             if not character then continue end
 
                             local humanoid = character:FindFirstChild("Humanoid")
-                            if DeathCheck:Get() and (not humanoid or humanoid.Health <= 0) then continue end
+                            if DeathCheck:Get() == true and (not humanoid or humanoid.Health <= 0) then continue end
 
-                            if TeamCheck:Get() and player.Team == LocalPlayer.Team then continue end
+                            if TeamCheck:Get() == true and player.Team == LocalPlayer.Team then continue end
 
                             local targetPart = character:FindFirstChild(boneName)
                             if not targetPart then continue end
 
-                            if WallCheck:Get() then
+                            if WallCheck:Get() == true then
                                 local localChar = LocalPlayer.Character
                                 if localChar then
                                     local parts = Camera:GetPartsObscuringTarget({targetPart.Position}, {localChar, character})
@@ -210,9 +210,9 @@ do
                         FoVCircle.Position = mousePos
                         FoVCircle.Radius = Radius:Get()
                         FoVCircle.Color = Library.Theme.Accent
-                        FoVCircle.Visible = SilentAimEnabled:Get() and FoVCircleEnabled:Get()
+                        FoVCircle.Visible = (SilentAimEnabled:Get() == true and FoVCircleEnabled:Get() == true)
 
-                        if SilentAimEnabled:Get() and TracerEnabled:Get() then
+                        if SilentAimEnabled:Get() == true and TracerEnabled:Get() == true then
                             local target = getClosestPlayer()
                             if target then
                                 local screenPos, onScreen = Camera:WorldToViewportPoint(target.Position)
@@ -237,7 +237,7 @@ do
                         local method = getnamecallmethod()
                         local args = {...}
 
-                        if SilentAimEnabled:Get() and not checkcaller() and self == workspace then
+                        if not checkcaller() and self == workspace and SilentAimEnabled:Get() == true then
                             if method == "Raycast" then
                                 local origin = args[1]
                                 local target = getClosestPlayer()
