@@ -90,64 +90,89 @@ do
 
         do
             local SilentAimSection = AimbotSubPage:Section({Name = "Silent Aim", Side = 1}) do
-                local SilentAimEnabled = SilentAimSection:Toggle({
+                local SilentAimState = {
+                    Enabled = false,
+                    FoVCircle = false,
+                    Tracer = false,
+                    Radius = 130,
+                    Bone = "Head",
+                    WallCheck = false,
+                    TeamCheck = false,
+                    DeathCheck = true
+                }
+
+                local Camera = workspace.CurrentCamera
+                local Players = game:GetService("Players")
+                local LocalPlayer = Players.LocalPlayer
+                local UserInputService = game:GetService("UserInputService")
+
+                local GetPlayers = Players.GetPlayers
+                local WorldToViewportPoint = Camera.WorldToViewportPoint
+                local GetPartsObscuringTarget = Camera.GetPartsObscuringTarget
+                local FindFirstChild = game.FindFirstChild
+                local GetMouseLocation = UserInputService.GetMouseLocation
+
+                SilentAimSection:Toggle({
                     Name = "Enabled",
                     Flag = "SilentAimEnabled",
-                    Default = false
+                    Default = false,
+                    Callback = function(v) SilentAimState.Enabled = v end
                 })
 
-                local FoVCircleEnabled = SilentAimSection:Toggle({
+                SilentAimSection:Toggle({
                     Name = "FoV Circle",
                     Flag = "SilentAimFoVEnabled",
-                    Default = false
+                    Default = false,
+                    Callback = function(v) SilentAimState.FoVCircle = v end
                 })
 
-                local TracerEnabled = SilentAimSection:Toggle({
+                SilentAimSection:Toggle({
                     Name = "Tracer",
                     Flag = "SilentAimTracerEnabled",
-                    Default = false
+                    Default = false,
+                    Callback = function(v) SilentAimState.Tracer = v end
                 })
 
-                local Radius = SilentAimSection:Slider({
+                SilentAimSection:Slider({
                     Name = "Radius",
                     Flag = "SilentAimRadius",
                     Min = 1,
                     Suffix = "px",
                     Max = 500,
                     Default = 130,
-                    Decimals = 1
+                    Decimals = 1,
+                    Callback = function(v) SilentAimState.Radius = v end
                 })
 
-                local Bone = SilentAimSection:Dropdown({
+                SilentAimSection:Dropdown({
                     Name = "Bone",
                     Flag = "SilentAimBone",
                     Default = "Head",
                     Multi = false,
-                    Items = {"Head", "HumanoidRootPart"}
+                    Items = {"Head", "HumanoidRootPart"},
+                    Callback = function(v) SilentAimState.Bone = v end
                 })
 
-                local WallCheck = SilentAimSection:Toggle({
+                SilentAimSection:Toggle({
                     Name = "Wall Check",
                     Flag = "SilentAimWallCheck",
-                    Default = false
+                    Default = false,
+                    Callback = function(v) SilentAimState.WallCheck = v end
                 })
 
-                local TeamCheck = SilentAimSection:Toggle({
+                SilentAimSection:Toggle({
                     Name = "Team Check",
                     Flag = "SilentAimTeamCheck",
-                    Default = false
+                    Default = false,
+                    Callback = function(v) SilentAimState.TeamCheck = v end
                 })
 
-                local DeathCheck = SilentAimSection:Toggle({
+                SilentAimSection:Toggle({
                     Name = "Death Check",
                     Flag = "SilentAimDeathCheck",
-                    Default = true
+                    Default = true,
+                    Callback = function(v) SilentAimState.DeathCheck = v end
                 }) do
-                    local Camera = workspace.CurrentCamera
-                    local Players = game:GetService("Players")
-                    local LocalPlayer = Players.LocalPlayer
-                    local UserInputService = game:GetService("UserInputService")
-
                     local FoVCircle = Drawing.new("Circle")
                     FoVCircle.Thickness = 1
                     FoVCircle.NumSides = 100
@@ -162,63 +187,111 @@ do
                     Tracer.ZIndex = 999
                     Tracer.Transparency = 1
 
-                    local function getClosestPlayer()
-                        local closestPart = nil
-                        local closestDist = Radius:Get()
-                        local mousePos = UserInputService:GetMouseLocation()
-                        local boneName = Bone:Get()
+                    local ExpectedArguments = {
+                        FindPartOnRayWithIgnoreList = {
+                            ArgCountRequired = 3,
+                            Args = {"Instance", "Ray", "table", "boolean", "boolean"}
+                        },
+                        FindPartOnRayWithWhitelist = {
+                            ArgCountRequired = 3,
+                            Args = {"Instance", "Ray", "table", "boolean"}
+                        },
+                        FindPartOnRay = {
+                            ArgCountRequired = 2,
+                            Args = {"Instance", "Ray", "Instance", "boolean", "boolean"}
+                        },
+                        Raycast = {
+                            ArgCountRequired = 3,
+                            Args = {"Instance", "Vector3", "Vector3", "RaycastParams"}
+                        }
+                    }
 
-                        for _, player in pairs(Players:GetPlayers()) do
-                            if player == LocalPlayer then continue end
-
-                            local character = player.Character
-                            if not character then continue end
-
-                            local humanoid = character:FindFirstChild("Humanoid")
-                            if DeathCheck:Get() == true and (not humanoid or humanoid.Health <= 0) then continue end
-
-                            if TeamCheck:Get() == true and player.Team == LocalPlayer.Team then continue end
-
-                            local targetPart = character:FindFirstChild(boneName)
-                            if not targetPart then continue end
-
-                            if WallCheck:Get() == true then
-                                local localChar = LocalPlayer.Character
-                                if localChar then
-                                    local parts = Camera:GetPartsObscuringTarget({targetPart.Position}, {localChar, character})
-                                    if #parts > 0 then continue end
-                                end
+                    local function ValidateArguments(Args, RayMethod)
+                        local Matches = 0
+                        if #Args < RayMethod.ArgCountRequired then
+                            return false
+                        end
+                        for Pos, Argument in next, Args do
+                            if typeof(Argument) == RayMethod.Args[Pos] then
+                                Matches = Matches + 1
                             end
+                        end
+                        return Matches >= RayMethod.ArgCountRequired
+                    end
 
-                            local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-                            if not onScreen then continue end
+                    local function getDirection(Origin, Position)
+                        return (Position - Origin).Unit * 1000
+                    end
 
-                            local dist = (mousePos - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-                            if dist < closestDist then
-                                closestDist = dist
-                                closestPart = targetPart
+                    local function getMousePosition()
+                        return GetMouseLocation(UserInputService)
+                    end
+
+                    local function IsPlayerVisible(Player)
+                        local PlayerCharacter = Player.Character
+                        local LocalPlayerCharacter = LocalPlayer.Character
+                        if not (PlayerCharacter and LocalPlayerCharacter) then return false end
+
+                        local TargetPart = FindFirstChild(PlayerCharacter, SilentAimState.Bone) or FindFirstChild(PlayerCharacter, "HumanoidRootPart")
+                        if not TargetPart then return false end
+
+                        local ObscuringObjects = #GetPartsObscuringTarget(Camera, {TargetPart.Position}, {LocalPlayerCharacter, PlayerCharacter})
+                        return ObscuringObjects == 0
+                    end
+
+                    local function getClosestPlayer()
+                        local Closest = nil
+                        local ClosestDist = nil
+                        local MousePos = getMousePosition()
+                        local BoneName = SilentAimState.Bone
+
+                        for _, Player in next, GetPlayers(Players) do
+                            if Player == LocalPlayer then continue end
+                            if SilentAimState.TeamCheck and Player.Team == LocalPlayer.Team then continue end
+
+                            local Character = Player.Character
+                            if not Character then continue end
+
+                            local Humanoid = FindFirstChild(Character, "Humanoid")
+                            if SilentAimState.DeathCheck and (not Humanoid or Humanoid.Health <= 0) then continue end
+
+                            local HumanoidRootPart = FindFirstChild(Character, "HumanoidRootPart")
+                            if not HumanoidRootPart then continue end
+
+                            if SilentAimState.WallCheck and not IsPlayerVisible(Player) then continue end
+
+                            local ScreenPos, OnScreen = WorldToViewportPoint(Camera, HumanoidRootPart.Position)
+                            if not OnScreen then continue end
+
+                            local Distance = (MousePos - Vector2.new(ScreenPos.X, ScreenPos.Y)).Magnitude
+                            if Distance <= (ClosestDist or SilentAimState.Radius) then
+                                Closest = FindFirstChild(Character, BoneName) or HumanoidRootPart
+                                ClosestDist = Distance
                             end
                         end
 
-                        return closestPart
+                        return Closest
                     end
 
                     game.RunService.RenderStepped:Connect(function()
                         Camera = workspace.CurrentCamera
-                        local mousePos = UserInputService:GetMouseLocation()
 
-                        FoVCircle.Position = mousePos
-                        FoVCircle.Radius = Radius:Get()
-                        FoVCircle.Color = Library.Theme.Accent
-                        FoVCircle.Visible = (SilentAimEnabled:Get() == true and FoVCircleEnabled:Get() == true)
+                        if SilentAimState.Enabled and SilentAimState.FoVCircle then
+                            FoVCircle.Position = getMousePosition()
+                            FoVCircle.Radius = SilentAimState.Radius
+                            FoVCircle.Color = Library.Theme.Accent
+                            FoVCircle.Visible = true
+                        else
+                            FoVCircle.Visible = false
+                        end
 
-                        if SilentAimEnabled:Get() == true and TracerEnabled:Get() == true then
-                            local target = getClosestPlayer()
-                            if target then
-                                local screenPos, onScreen = Camera:WorldToViewportPoint(target.Position)
-                                if onScreen then
+                        if SilentAimState.Enabled and SilentAimState.Tracer then
+                            local Target = getClosestPlayer()
+                            if Target then
+                                local ScreenPos, OnScreen = WorldToViewportPoint(Camera, Target.Position)
+                                if OnScreen then
                                     Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                                    Tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                                    Tracer.To = Vector2.new(ScreenPos.X, ScreenPos.Y)
                                     Tracer.Color = Library.Theme.Accent
                                     Tracer.Visible = true
                                 else
@@ -233,29 +306,51 @@ do
                     end)
 
                     local oldNamecall
-                    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-                        local method = getnamecallmethod()
-                        local args = {...}
+                    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
+                        local Method = getnamecallmethod()
+                        local Arguments = {...}
+                        local self = Arguments[1]
 
-                        if not checkcaller() and self == workspace and SilentAimEnabled:Get() == true then
-                            if method == "Raycast" then
-                                local origin = args[1]
-                                local target = getClosestPlayer()
-                                if target then
-                                    args[2] = (target.Position - origin).Unit * 1000
-                                    return oldNamecall(self, unpack(args))
+                        if SilentAimState.Enabled and self == workspace and not checkcaller() then
+                            if Method == "FindPartOnRayWithIgnoreList" then
+                                if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRayWithIgnoreList) then
+                                    local HitPart = getClosestPlayer()
+                                    if HitPart then
+                                        local Origin = Arguments[2].Origin
+                                        Arguments[2] = Ray.new(Origin, getDirection(Origin, HitPart.Position))
+                                        return oldNamecall(unpack(Arguments))
+                                    end
                                 end
-                            elseif method == "FindPartOnRayWithIgnoreList" or method == "FindPartOnRayWithWhitelist" or method == "FindPartOnRay" then
-                                local ray = args[1]
-                                local target = getClosestPlayer()
-                                if target then
-                                    args[1] = Ray.new(ray.Origin, (target.Position - ray.Origin).Unit * 1000)
-                                    return oldNamecall(self, unpack(args))
+                            elseif Method == "FindPartOnRayWithWhitelist" then
+                                if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRayWithWhitelist) then
+                                    local HitPart = getClosestPlayer()
+                                    if HitPart then
+                                        local Origin = Arguments[2].Origin
+                                        Arguments[2] = Ray.new(Origin, getDirection(Origin, HitPart.Position))
+                                        return oldNamecall(unpack(Arguments))
+                                    end
+                                end
+                            elseif Method == "FindPartOnRay" or Method == "findPartOnRay" then
+                                if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRay) then
+                                    local HitPart = getClosestPlayer()
+                                    if HitPart then
+                                        local Origin = Arguments[2].Origin
+                                        Arguments[2] = Ray.new(Origin, getDirection(Origin, HitPart.Position))
+                                        return oldNamecall(unpack(Arguments))
+                                    end
+                                end
+                            elseif Method == "Raycast" then
+                                if ValidateArguments(Arguments, ExpectedArguments.Raycast) then
+                                    local HitPart = getClosestPlayer()
+                                    if HitPart then
+                                        Arguments[3] = getDirection(Arguments[2], HitPart.Position)
+                                        return oldNamecall(unpack(Arguments))
+                                    end
                                 end
                             end
                         end
 
-                        return oldNamecall(self, ...)
+                        return oldNamecall(...)
                     end))
                 end
             end
