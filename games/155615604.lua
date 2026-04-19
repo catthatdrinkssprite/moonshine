@@ -398,9 +398,9 @@ do
                         end
                         local displayName = humanoid.DisplayName
                         if string.sub(displayName, 1, 4) == "\xF0\x9F\x94\x97" then
-                            return "\xF0\x9F\x94\x97 " .. Character.Name
+                            return "[W] " .. Character.Name
                         elseif string.sub(displayName, 1, 4) == "\xF0\x9F\x92\xA2" then
-                            return "\xF0\x9F\x92\xA2 " .. Character.Name
+                            return "[A] " .. Character.Name
                         end
                         return Character.Name
                     end
