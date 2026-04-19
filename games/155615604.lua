@@ -97,7 +97,8 @@ do
                     Radius = 130,
                     Bone = "Head",
                     WallCheck = false,
-                    TeamCheck = false,
+                    Teams = {},
+                    InmateTypes = {},
                     DeathCheck = true
                 }
 
@@ -160,11 +161,20 @@ do
                     Callback = function(v) SilentAimState.WallCheck = v end
                 })
 
-                SilentAimSection:Toggle({
-                    Name = "Team Check",
-                    Flag = "SilentAimTeamCheck",
-                    Default = false,
-                    Callback = function(v) SilentAimState.TeamCheck = v end
+                SilentAimSection:Dropdown({
+                    Name = "Teams",
+                    Flag = "SilentAimTeams",
+                    Multi = true,
+                    Items = {"Guards", "Inmates", "Criminals"},
+                    Callback = function(v) SilentAimState.Teams = v end
+                })
+
+                SilentAimSection:Dropdown({
+                    Name = "Inmate Types",
+                    Flag = "SilentAimInmateTypes",
+                    Multi = true,
+                    Items = {"Regular", "Aggressive", "Arrestable"},
+                    Callback = function(v) SilentAimState.InmateTypes = v end
                 })
 
                 SilentAimSection:Toggle({
@@ -227,6 +237,18 @@ do
                         return GetMouseLocation(UserInputService)
                     end
 
+                    local function GetInmateStatus(Character)
+                        local humanoid = FindFirstChild(Character, "Humanoid")
+                        if not humanoid then return "Regular" end
+                        local displayName = humanoid.DisplayName
+                        if string.sub(displayName, 1, 4) == "\xF0\x9F\x94\x97" then
+                            return "Arrestable"
+                        elseif string.sub(displayName, 1, 4) == "\xF0\x9F\x92\xA2" then
+                            return "Aggressive"
+                        end
+                        return "Regular"
+                    end
+
                     local function IsPlayerVisible(Player)
                         local PlayerCharacter = Player.Character
                         local LocalPlayerCharacter = LocalPlayer.Character
@@ -247,10 +269,17 @@ do
 
                         for _, Player in next, GetPlayers(Players) do
                             if Player == LocalPlayer then continue end
-                            if SilentAimState.TeamCheck and Player.Team == LocalPlayer.Team then continue end
+
+                            local TeamName = Player.Team and Player.Team.Name or ""
+                            if next(SilentAimState.Teams) and not SilentAimState.Teams[TeamName] then continue end
 
                             local Character = Player.Character
                             if not Character then continue end
+
+                            if TeamName == "Inmates" and next(SilentAimState.InmateTypes) then
+                                local Status = GetInmateStatus(Character)
+                                if not SilentAimState.InmateTypes[Status] then continue end
+                            end
 
                             local Humanoid = FindFirstChild(Character, "Humanoid")
                             if SilentAimState.DeathCheck and (not Humanoid or Humanoid.Health <= 0) then continue end
@@ -361,6 +390,70 @@ do
         local ESPSubPage = VisualsPage:SubPage({Name = "ESP", Columns = 2})
 
         do
+            local ESPFilterState = {
+                Teams = {},
+                InmateTypes = {}
+            }
+
+            local function GetInmateStatusESP(Character)
+                local humanoid = Character:FindFirstChildOfClass("Humanoid")
+                if not humanoid then return "Regular" end
+                local displayName = humanoid.DisplayName
+                if string.sub(displayName, 1, 4) == "\xF0\x9F\x94\x97" then
+                    return "Arrestable"
+                elseif string.sub(displayName, 1, 4) == "\xF0\x9F\x92\xA2" then
+                    return "Aggressive"
+                end
+                return "Regular"
+            end
+
+            local function ShouldShowPlayer(Player)
+                local TeamName = Player.Team and Player.Team.Name or ""
+                if next(ESPFilterState.Teams) and not ESPFilterState.Teams[TeamName] then
+                    return false
+                end
+                if TeamName == "Inmates" and next(ESPFilterState.InmateTypes) then
+                    local Character = Player.Character
+                    if Character then
+                        local Status = GetInmateStatusESP(Character)
+                        if not ESPFilterState.InmateTypes[Status] then
+                            return false
+                        end
+                    end
+                end
+                return true
+            end
+
+            local function GetDisplayName(Character)
+                local humanoid = Character:FindFirstChildOfClass("Humanoid")
+                if not humanoid then return Character.Name end
+                local displayName = humanoid.DisplayName
+                if string.sub(displayName, 1, 4) == "\xF0\x9F\x94\x97" then
+                    return "[W] " .. Character.Name
+                elseif string.sub(displayName, 1, 4) == "\xF0\x9F\x92\xA2" then
+                    return "[A] " .. Character.Name
+                end
+                return Character.Name
+            end
+
+            local ESPFilters = ESPSubPage:Section({Name = "Filters", Side = 1}) do
+                ESPFilters:Dropdown({
+                    Name = "Teams",
+                    Flag = "ESPFilterTeams",
+                    Multi = true,
+                    Items = {"Guards", "Inmates", "Criminals"},
+                    Callback = function(v) ESPFilterState.Teams = v end
+                })
+
+                ESPFilters:Dropdown({
+                    Name = "Inmate Types",
+                    Flag = "ESPFilterInmateTypes",
+                    Multi = true,
+                    Items = {"Regular", "Aggressive", "Arrestable"},
+                    Callback = function(v) ESPFilterState.InmateTypes = v end
+                })
+            end
+
             local NameESP = ESPSubPage:Section({Name = "Name ESP", Side = 1}) do
                 local Enabled = NameESP:Toggle({
                     Name = "Enabled",
@@ -391,20 +484,6 @@ do
                     Flag = "NameESPOutline",
                     Default = true
                 }) do
-                    local function GetDisplayName(Character)
-                        local humanoid = Character:FindFirstChildOfClass("Humanoid")
-                        if not humanoid or InmateStatus:Get() ~= true then
-                            return Character.Name
-                        end
-                        local displayName = humanoid.DisplayName
-                        if string.sub(displayName, 1, 4) == "\xF0\x9F\x94\x97" then
-                            return "[W] " .. Character.Name
-                        elseif string.sub(displayName, 1, 4) == "\xF0\x9F\x92\xA2" then
-                            return "[A] " .. Character.Name
-                        end
-                        return Character.Name
-                    end
-
                     local function Apply(Character)
                         if game.Players:GetPlayerFromCharacter(Character) then
                             local Player = game.Players:GetPlayerFromCharacter(Character)
@@ -418,8 +497,16 @@ do
                             local Render = game.RunService.RenderStepped:Connect(function()
                                 local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(Character.HumanoidRootPart.Position)
                                 if onscreen then
+                                    if not ShouldShowPlayer(Player) then
+                                        Text.Visible = false
+                                        return
+                                    end
                                     Text.Position = Vector2.new(pos.X, pos.Y)
-                                    Text.Text = GetDisplayName(Character)
+                                    if InmateStatus:Get() == true then
+                                        Text.Text = GetDisplayName(Character)
+                                    else
+                                        Text.Text = Character.Name
+                                    end
                                     if ShowSelf:Get() == true then
                                         Text.Visible = Enabled:Get()
                                     else
@@ -505,6 +592,11 @@ do
                             local Render = game.RunService.RenderStepped:Connect(function()
                                 local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(Character.HumanoidRootPart.Position)
                                 if onscreen then
+                                    if not ShouldShowPlayer(Player) then
+                                        Box.Visible = false
+                                        BoxOutline.Visible = false
+                                        return
+                                    end
                                     local scale = 1 / (pos.Z * math.tan(math.rad(workspace.CurrentCamera.FieldOfView * 0.5)) * 2) * 1000
                                     local width, height = math.floor(4.5 * scale), math.floor(6 * scale)
                                     local x, y = math.floor(pos.X), math.floor(pos.Y)
@@ -635,10 +727,10 @@ do
                 Flag = "AntiInvisibleEnabled",
                 Default = false
             }) do
-                local ActiveHighlights = {}
+                local FlaggedPlayers = {}
 
                 local function ApplyHighlight(character)
-                    if ActiveHighlights[character] then return end
+                    if character:FindFirstChild("AntiInvisHighlight") then return end
                     local highlight = Instance.new("Highlight")
                     highlight.Name = "AntiInvisHighlight"
                     highlight.FillColor = Color3.fromRGB(255, 0, 0)
@@ -646,14 +738,17 @@ do
                     highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
                     highlight.OutlineTransparency = 0
                     highlight.Parent = character
-                    ActiveHighlights[character] = highlight
                 end
 
                 local function RemoveHighlight(character)
-                    local highlight = ActiveHighlights[character]
-                    if highlight then
-                        highlight:Destroy()
-                        ActiveHighlights[character] = nil
+                    local highlight = character:FindFirstChild("AntiInvisHighlight")
+                    if highlight then highlight:Destroy() end
+                end
+
+                local function CleanupPlayer(player)
+                    FlaggedPlayers[player] = nil
+                    if player.Character then
+                        RemoveHighlight(player.Character)
                     end
                 end
 
@@ -665,26 +760,29 @@ do
                             if not character then continue end
                             local humanoid = character:FindFirstChildOfClass("Humanoid")
                             if not humanoid then continue end
-                            local animator = humanoid:FindFirstChildOfClass("Animator")
-                            if not animator then continue end
 
-                            local usingInvis = false
-                            for _, track in pairs(animator:GetPlayingAnimationTracks()) do
-                                if track.Animation and track.Animation.AnimationId == "rbxassetid://215384594" then
-                                    track:Stop(0)
-                                    usingInvis = true
+                            local animator = humanoid:FindFirstChildOfClass("Animator")
+                            if animator then
+                                for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                                    if track.Animation and track.Animation.AnimationId == "rbxassetid://215384594" then
+                                        FlaggedPlayers[player] = true
+                                        animator:Destroy()
+                                        break
+                                    end
                                 end
                             end
 
-                            if usingInvis then
+                            if FlaggedPlayers[player] then
                                 ApplyHighlight(character)
-                            else
-                                RemoveHighlight(character)
+                                local newAnimator = humanoid:FindFirstChildOfClass("Animator")
+                                if newAnimator then
+                                    newAnimator:Destroy()
+                                end
                             end
                         end
                     else
-                        for character, _ in pairs(ActiveHighlights) do
-                            RemoveHighlight(character)
+                        for player, _ in pairs(FlaggedPlayers) do
+                            CleanupPlayer(player)
                         end
                     end
                 end)
