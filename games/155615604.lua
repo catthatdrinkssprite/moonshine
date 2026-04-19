@@ -290,7 +290,7 @@ do
                             if Target then
                                 local ScreenPos, OnScreen = WorldToViewportPoint(Camera, Target.Position)
                                 if OnScreen then
-                                    Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                                    Tracer.From = getMousePosition()
                                     Tracer.To = Vector2.new(ScreenPos.X, ScreenPos.Y)
                                     Tracer.Color = Library.Theme.Accent
                                     Tracer.Visible = true
@@ -380,11 +380,31 @@ do
                     Default = false
                 })
                 
+                local InmateStatus = NameESP:Toggle({
+                    Name = "Inmate Status",
+                    Flag = "NameESPInmateStatus",
+                    Default = true
+                })
+
                 local Outline = NameESP:Toggle({
                     Name = "Outline",
                     Flag = "NameESPOutline",
                     Default = true
                 }) do
+                    local function GetDisplayName(Character)
+                        local humanoid = Character:FindFirstChildOfClass("Humanoid")
+                        if not humanoid or InmateStatus:Get() ~= true then
+                            return Character.Name
+                        end
+                        local displayName = humanoid.DisplayName
+                        if string.sub(displayName, 1, 4) == "\xF0\x9F\x94\x97" then
+                            return "\xF0\x9F\x94\x97 " .. Character.Name
+                        elseif string.sub(displayName, 1, 4) == "\xF0\x9F\x92\xA2" then
+                            return "\xF0\x9F\x92\xA2 " .. Character.Name
+                        end
+                        return Character.Name
+                    end
+
                     local function Apply(Character)
                         if game.Players:GetPlayerFromCharacter(Character) then
                             local Player = game.Players:GetPlayerFromCharacter(Character)
@@ -399,7 +419,7 @@ do
                                 local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(Character.HumanoidRootPart.Position)
                                 if onscreen then
                                     Text.Position = Vector2.new(pos.X, pos.Y)
-                                    Text.Text = Character.Name
+                                    Text.Text = GetDisplayName(Character)
                                     if ShowSelf:Get() == true then
                                         Text.Visible = Enabled:Get()
                                     else
@@ -603,6 +623,70 @@ do
             }) do
                 game.RunService.RenderStepped:Connect(function()
                     game.Players.LocalPlayer.Character.AntiJump.Disabled = Enabled:Get()
+                end)
+            end
+        end
+    end
+
+    do
+        local AntiInvisible = MiscPage:Section({Name = "Anti Invisible", Side = 2}) do
+            local Enabled = AntiInvisible:Toggle({
+                Name = "Enabled",
+                Flag = "AntiInvisibleEnabled",
+                Default = false
+            }) do
+                local ActiveHighlights = {}
+
+                local function ApplyHighlight(character)
+                    if ActiveHighlights[character] then return end
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "AntiInvisHighlight"
+                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                    highlight.FillTransparency = 0.5
+                    highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+                    highlight.OutlineTransparency = 0
+                    highlight.Parent = character
+                    ActiveHighlights[character] = highlight
+                end
+
+                local function RemoveHighlight(character)
+                    local highlight = ActiveHighlights[character]
+                    if highlight then
+                        highlight:Destroy()
+                        ActiveHighlights[character] = nil
+                    end
+                end
+
+                game.RunService.RenderStepped:Connect(function()
+                    if Enabled:Get() == true then
+                        for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+                            if player == game.Players.LocalPlayer then continue end
+                            local character = player.Character
+                            if not character then continue end
+                            local humanoid = character:FindFirstChildOfClass("Humanoid")
+                            if not humanoid then continue end
+                            local animator = humanoid:FindFirstChildOfClass("Animator")
+                            if not animator then continue end
+
+                            local usingInvis = false
+                            for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                                if track.Animation and track.Animation.AnimationId == "rbxassetid://215384594" then
+                                    track:Stop(0)
+                                    usingInvis = true
+                                end
+                            end
+
+                            if usingInvis then
+                                ApplyHighlight(character)
+                            else
+                                RemoveHighlight(character)
+                            end
+                        end
+                    else
+                        for character, _ in pairs(ActiveHighlights) do
+                            RemoveHighlight(character)
+                        end
+                    end
                 end)
             end
         end
