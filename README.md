@@ -9,6 +9,14 @@ a fully opensource script for roblox
 | --- | --- | --- |
 | prison life | 155615604 | ~1700 |
 
+## 💻 recommended executors
+| executor | sunc | price |
+| --- | --- | --- |
+| volt | 98% | 6$/wk |
+| seliware | 100% | 10$/mo |
+| potASSium | 100% | 20$/lf |
+| madium | null | free |
+
 <details>
 <summary>📦 script</summary>
 
@@ -109,6 +117,7 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 
 - **centralized render loop** — single `RenderStepped` connection with a cached callback system instead of individual connections per feature
 - **table-driven loader** — assets and folders declared as tables, downloaded with error handling and failure notifications
+- **[quartz](https://github.com/notpoiu/Quartz) compatibility layer** — automatically tests and polyfills missing executor functions at startup, ensuring cross-executor support
 
 ---
 
@@ -123,5 +132,7 @@ catthatdrinkssprite - script founder and lead developer
 azula.cs - active contributor
 
 scoot - ui library
+
+upio - executor compatibility and polyfill framework
 
 </div>

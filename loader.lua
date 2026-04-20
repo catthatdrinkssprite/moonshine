@@ -1,3 +1,13 @@
+local QuartzOk, Quartz = pcall(function()
+    return loadstring(game:HttpGet("https://github.com/notpoiu/Quartz/releases/latest/download/Quartz.luau"))()
+end)
+
+if QuartzOk and Quartz then
+    local Tester = Quartz.new({ Timeout = 5, AllowFFlagPolyfills = true })
+    Tester:TestAll()
+    Tester:PatchEnvironment()
+end
+
 local BASE_URL = "https://github.com/CatThatDrinksSprite/moonshine/raw/main"
 
 local Folders = {
@@ -38,6 +48,25 @@ local Library = loadstring(game:HttpGet(BASE_URL .. "/libraries/scoot/Library.lu
 
 if #FailedAssets > 0 then
     Library:Notification("Download Failed.", "Could not download: " .. table.concat(FailedAssets, ", "), 8)
+end
+
+local RequiredFunctions = {
+    "hookmetamethod", "newcclosure", "getnamecallmethod",
+    "checkcaller", "mouse1click", "Drawing",
+    "isfolder", "makefolder", "isfile", "writefile", "readfile", "loadstring",
+}
+
+local MissingFunctions = {}
+for _, name in RequiredFunctions do
+    if typeof(getfenv()[name]) ~= "function" and typeof(getgenv()[name]) ~= "function" and typeof(getfenv()[name]) ~= "table" then
+        table.insert(MissingFunctions, name)
+    end
+end
+
+if #MissingFunctions > 0 then
+    Library:Notification("Incompatible Executor", "Missing: " .. table.concat(MissingFunctions, ", "), 10)
+    warn("[moonshine] Executor is missing critical functions even after Quartz polyfill: " .. table.concat(MissingFunctions, ", "))
+    return
 end
 
 local success, result = pcall(function()
