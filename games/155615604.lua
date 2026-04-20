@@ -16,6 +16,7 @@ do
     local VisualsPage = Window:Page({Name = "Visuals", SubPages = true})
     local WorldPage = Window:Page({Name = "World", Columns = 2})
     local MiscPage = Window:Page({Name = "Misc", Columns = 2})
+    local BlatantPage = Window:Page({Name = "Blatant", Columns = 2})
     local SettingsPage = Library:CreateSettingsPage(Window, Watermark, KeybindList)
 
     local FriendsCache = {}
@@ -41,6 +42,8 @@ do
     end
 
     local RemovedDoorsRef = nil
+    local RagebotForcedTarget = nil
+    local RagebotMuzzleOrigin = nil
 
     local RunService = game:GetService("RunService")
     local RenderCache = {}
@@ -606,39 +609,44 @@ do
                         local Arguments = {...}
                         local self = Arguments[1]
 
-                        if SilentAimState.Enabled and self == workspace and not checkcaller() then
+                        if (SilentAimState.Enabled or RagebotForcedTarget) and self == workspace and not checkcaller() then
+                            local rbTarget = RagebotForcedTarget
+                            local rbOrigin = RagebotMuzzleOrigin
+
                             if Method == "FindPartOnRayWithIgnoreList" then
                                 if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRayWithIgnoreList) then
-                                    local HitPart = getClosestPlayer()
+                                    local HitPart = rbTarget or getClosestPlayer()
                                     if HitPart then
-                                        local Origin = Arguments[2].Origin
+                                        local Origin = rbOrigin or Arguments[2].Origin
                                         Arguments[2] = Ray.new(Origin, getDirection(Origin, HitPart.Position))
                                         return oldNamecall(unpack(Arguments))
                                     end
                                 end
                             elseif Method == "FindPartOnRayWithWhitelist" then
                                 if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRayWithWhitelist) then
-                                    local HitPart = getClosestPlayer()
+                                    local HitPart = rbTarget or getClosestPlayer()
                                     if HitPart then
-                                        local Origin = Arguments[2].Origin
+                                        local Origin = rbOrigin or Arguments[2].Origin
                                         Arguments[2] = Ray.new(Origin, getDirection(Origin, HitPart.Position))
                                         return oldNamecall(unpack(Arguments))
                                     end
                                 end
                             elseif Method == "FindPartOnRay" or Method == "findPartOnRay" then
                                 if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRay) then
-                                    local HitPart = getClosestPlayer()
+                                    local HitPart = rbTarget or getClosestPlayer()
                                     if HitPart then
-                                        local Origin = Arguments[2].Origin
+                                        local Origin = rbOrigin or Arguments[2].Origin
                                         Arguments[2] = Ray.new(Origin, getDirection(Origin, HitPart.Position))
                                         return oldNamecall(unpack(Arguments))
                                     end
                                 end
                             elseif Method == "Raycast" then
                                 if ValidateArguments(Arguments, ExpectedArguments.Raycast) then
-                                    local HitPart = getClosestPlayer()
+                                    local HitPart = rbTarget or getClosestPlayer()
                                     if HitPart then
-                                        Arguments[3] = getDirection(Arguments[2], HitPart.Position)
+                                        local Origin = rbOrigin or Arguments[2]
+                                        Arguments[2] = Origin
+                                        Arguments[3] = getDirection(Origin, HitPart.Position)
                                         return oldNamecall(unpack(Arguments))
                                     end
                                 end
@@ -2082,5 +2090,346 @@ do
                 end)
             end
         end
+    end
+
+    do
+        local RagebotSection = BlatantPage:Section({Name = "Ragebot (BETA)", Side = 1})
+        local RagebotConfigSection = BlatantPage:Section({Name = "Ragebot Config", Side = 2})
+
+        local Players = game:GetService("Players")
+        local LocalPlayer = Players.LocalPlayer
+
+        local RBState = {
+            Enabled = false,
+            AutoSwitch = true,
+            AutoReload = true,
+            TargetBone = "HumanoidRootPart",
+            Teams = {},
+            InmateTypes = {},
+            DeathCheck = true,
+            ForceFieldCheck = true,
+            FriendCheck = false,
+            Whitelist = {},
+        }
+
+        local RBLastFireTick = 0
+        local RBSwitchCooldown = 0
+
+        local function RBGetAllGuns()
+            local guns = {}
+            for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+                if tool:IsA("Tool") and tool:GetAttribute("ToolType") == "Gun" then
+                    table.insert(guns, tool)
+                end
+            end
+            local char = LocalPlayer.Character
+            if char then
+                for _, tool in pairs(char:GetChildren()) do
+                    if tool:IsA("Tool") and tool:GetAttribute("ToolType") == "Gun" then
+                        table.insert(guns, tool)
+                    end
+                end
+            end
+            return guns
+        end
+
+        local function RBGetEquippedGun()
+            local char = LocalPlayer.Character
+            if not char then return nil end
+            for _, tool in pairs(char:GetChildren()) do
+                if tool:IsA("Tool") and tool:GetAttribute("ToolType") == "Gun" then
+                    return tool
+                end
+            end
+            return nil
+        end
+
+        local function RBGetMuzzlePosition(tool)
+            local muzzle = tool:FindFirstChild("Muzzle")
+            if muzzle and muzzle:IsA("BasePart") then return muzzle.Position end
+            local handle = tool:FindFirstChild("Handle")
+            if handle and handle:IsA("BasePart") then return handle.Position end
+            return nil
+        end
+
+        local function RBHasClearLOS(origin, targetPos, ignoreList)
+            local direction = targetPos - origin
+            local params = RaycastParams.new()
+            params.FilterType = Enum.RaycastFilterType.Exclude
+            params.FilterDescendantsInstances = ignoreList
+            local result = workspace:Raycast(origin, direction, params)
+            return result == nil
+        end
+
+        local function RBGetInmateStatus(character)
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if not humanoid then return "Regular" end
+            local dn = humanoid.DisplayName
+            if string.sub(dn, 1, 4) == "\xF0\x9F\x94\x97" then return "Arrestable"
+            elseif string.sub(dn, 1, 4) == "\xF0\x9F\x92\xA2" then return "Aggressive" end
+            return "Regular"
+        end
+
+        local function RBFindBestTarget(muzzlePos, gun)
+            local localChar = LocalPlayer.Character
+            if not localChar then return nil end
+
+            local range = gun:GetAttribute("Range") or 1000
+            local bestTarget = nil
+            local bestDist = math.huge
+
+            for _, player in pairs(Players:GetPlayers()) do
+                if player == LocalPlayer then continue end
+                if RBState.Whitelist[player.Name] then continue end
+                if RBState.FriendCheck and FriendsCache[player.Name] then continue end
+
+                local teamName = player.Team and player.Team.Name or ""
+                if next(RBState.Teams) and not RBState.Teams[teamName] then continue end
+
+                local character = player.Character
+                if not character then continue end
+
+                if teamName == "Inmates" and next(RBState.InmateTypes) then
+                    local status = RBGetInmateStatus(character)
+                    if not RBState.InmateTypes[status] then continue end
+                end
+
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if RBState.DeathCheck and (not humanoid or humanoid.Health <= 0) then continue end
+                if RBState.ForceFieldCheck and character:FindFirstChild("ForceField") then continue end
+
+                local targetPart = character:FindFirstChild(RBState.TargetBone) or character:FindFirstChild("HumanoidRootPart")
+                if not targetPart then continue end
+
+                local dist = (muzzlePos - targetPart.Position).Magnitude
+                if dist > range then continue end
+
+                local doorsFolder = RemovedDoorsRef
+                local oldParent
+                if doorsFolder then
+                    oldParent = doorsFolder.Parent
+                    doorsFolder.Parent = workspace
+                end
+
+                local clear = RBHasClearLOS(muzzlePos, targetPart.Position, {localChar, character})
+
+                if doorsFolder and oldParent then
+                    doorsFolder.Parent = oldParent
+                end
+
+                if clear and dist < bestDist then
+                    bestDist = dist
+                    bestTarget = targetPart
+                end
+            end
+
+            return bestTarget
+        end
+
+        RagebotSection:Toggle({
+            Name = "Enabled",
+            Flag = "RagebotEnabled",
+            Default = false,
+            Callback = function(v)
+                RBState.Enabled = v
+                if not v then
+                    RagebotForcedTarget = nil
+                end
+            end
+        })
+
+        RagebotSection:Toggle({
+            Name = "Auto Switch",
+            ToolTip = {
+                Name = "Auto Switch",
+                Description = "Automatically switches to another gun when the current one is empty"
+            },
+            Flag = "RagebotAutoSwitch",
+            Default = true,
+            Callback = function(v) RBState.AutoSwitch = v end
+        })
+
+        RagebotSection:Toggle({
+            Name = "Auto Reload",
+            ToolTip = {
+                Name = "Auto Reload",
+                Description = "Automatically reloads the current gun when the magazine is empty"
+            },
+            Flag = "RagebotAutoReload",
+            Default = true,
+            Callback = function(v) RBState.AutoReload = v end
+        })
+
+        RagebotSection:Dropdown({
+            Name = "Target Bone",
+            Flag = "RagebotTargetBone",
+            Default = "HumanoidRootPart",
+            Multi = false,
+            Items = {"Head", "HumanoidRootPart"},
+            Callback = function(v) RBState.TargetBone = v end
+        })
+
+        RagebotConfigSection:Dropdown({
+            Name = "Teams",
+            Flag = "RagebotTeams",
+            Multi = true,
+            Items = {"Guards", "Inmates", "Criminals"},
+            Callback = function(v)
+                local set = {}
+                for _, name in pairs(v) do set[name] = true end
+                RBState.Teams = set
+            end
+        })
+
+        RagebotConfigSection:Dropdown({
+            Name = "Inmate Types",
+            Flag = "RagebotInmateTypes",
+            Multi = true,
+            Items = {"Regular", "Aggressive", "Arrestable"},
+            Callback = function(v)
+                local set = {}
+                for _, name in pairs(v) do set[name] = true end
+                RBState.InmateTypes = set
+            end
+        })
+
+        RagebotConfigSection:Toggle({
+            Name = "Death Check",
+            Flag = "RagebotDeathCheck",
+            Default = true,
+            Callback = function(v) RBState.DeathCheck = v end
+        })
+
+        RagebotConfigSection:Toggle({
+            Name = "ForceField Check",
+            Flag = "RagebotForceFieldCheck",
+            Default = true,
+            Callback = function(v) RBState.ForceFieldCheck = v end
+        })
+
+        RagebotConfigSection:Toggle({
+            Name = "Friend Check",
+            Flag = "RagebotFriendCheck",
+            Default = false,
+            Callback = function(v) RBState.FriendCheck = v end
+        })
+
+        local rbPlayerNames = {}
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                table.insert(rbPlayerNames, p.Name)
+            end
+        end
+
+        local RBWhitelistDropdown = RagebotConfigSection:Dropdown({
+            Name = "Whitelist",
+            Flag = "RagebotWhitelist",
+            Multi = true,
+            Items = rbPlayerNames,
+            Callback = function(v)
+                local set = {}
+                for _, name in pairs(v) do set[name] = true end
+                RBState.Whitelist = set
+            end
+        })
+
+        Players.PlayerAdded:Connect(function(p) RBWhitelistDropdown:Add(p.Name) end)
+        Players.PlayerRemoving:Connect(function(p) RBWhitelistDropdown:Remove(p.Name) end)
+
+        NewRender(function()
+            if not RBState.Enabled then
+                RagebotForcedTarget = nil
+                RagebotMuzzleOrigin = nil
+                return
+            end
+
+            local character = LocalPlayer.Character
+            if not character then
+                RagebotForcedTarget = nil
+                RagebotMuzzleOrigin = nil
+                return
+            end
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if not humanoid or humanoid.Health <= 0 then
+                RagebotForcedTarget = nil
+                RagebotMuzzleOrigin = nil
+                return
+            end
+
+            local equippedGun = RBGetEquippedGun()
+            local now = tick()
+
+            if RBState.AutoSwitch and (now - RBSwitchCooldown) > 0.15 then
+                if not equippedGun then
+                    local guns = RBGetAllGuns()
+                    for _, gun in pairs(guns) do
+                        local ammo = gun:GetAttribute("CurrentAmmo") or 0
+                        if ammo > 0 then
+                            humanoid:EquipTool(gun)
+                            RBSwitchCooldown = now
+                            equippedGun = gun
+                            break
+                        end
+                    end
+                elseif (equippedGun:GetAttribute("CurrentAmmo") or 0) <= 0 then
+                    local stored = equippedGun:GetAttribute("StoredAmmo") or 0
+                    if RBState.AutoReload and stored > 0 and not equippedGun:GetAttribute("IsReloading") then
+                        keypress(0x52)
+                        task.defer(keyrelease, 0x52)
+                        return
+                    end
+
+                    if stored <= 0 then
+                        local guns = RBGetAllGuns()
+                        for _, gun in pairs(guns) do
+                            if gun == equippedGun then continue end
+                            local ammo = gun:GetAttribute("CurrentAmmo") or 0
+                            if ammo > 0 then
+                                humanoid:EquipTool(gun)
+                                RBSwitchCooldown = now
+                                equippedGun = gun
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+
+            if not equippedGun then
+                RagebotForcedTarget = nil
+                RagebotMuzzleOrigin = nil
+                return
+            end
+
+            local ammo = equippedGun:GetAttribute("CurrentAmmo") or 0
+            if ammo <= 0 then
+                RagebotForcedTarget = nil
+                RagebotMuzzleOrigin = nil
+                return
+            end
+
+            if equippedGun:GetAttribute("IsReloading") then
+                RagebotForcedTarget = nil
+                RagebotMuzzleOrigin = nil
+                return
+            end
+
+            local fireRate = equippedGun:GetAttribute("FireRate") or 0.1
+            if (now - RBLastFireTick) < fireRate then return end
+
+            local muzzlePos = RBGetMuzzlePosition(equippedGun)
+            if not muzzlePos then return end
+
+            local target = RBFindBestTarget(muzzlePos, equippedGun)
+            if target then
+                RagebotForcedTarget = target
+                RagebotMuzzleOrigin = muzzlePos
+                RBLastFireTick = now
+                mouse1click()
+            else
+                RagebotForcedTarget = nil
+                RagebotMuzzleOrigin = nil
+            end
+        end)
     end
 end
