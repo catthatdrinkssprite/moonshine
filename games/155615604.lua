@@ -503,7 +503,7 @@ do
 
                             local Humanoid = FindFirstChild(Character, "Humanoid")
                             if SilentAimState.DeathCheck and (not Humanoid or Humanoid.Health <= 0) then continue end
-                            if SilentAimState.ForceFieldCheck and Character:FindFirstChildOfClass("ForceField") then continue end
+                            if SilentAimState.ForceFieldCheck and FindFirstChild(Character, "ForceField") then continue end
 
                             local HumanoidRootPart = FindFirstChild(Character, "HumanoidRootPart")
                             if not HumanoidRootPart then continue end
@@ -989,7 +989,7 @@ do
                 local humanoid = Character:FindFirstChildOfClass("Humanoid")
                 if not humanoid then return Character.Name end
                 local prefix = ""
-                if Character:FindFirstChildOfClass("ForceField") then
+                if Character:FindFirstChild("ForceField") then
                     prefix = "[FF] "
                 end
                 local displayName = humanoid.DisplayName
