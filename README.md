@@ -7,7 +7,7 @@ a fully opensource script for roblox
 ## 🎮 supported games
 | game name | place id | lines of code |
 | --- | --- | --- |
-| prison life | 155615604 | 1185 |
+| prison life | 155615604 | ~1700 |
 
 <details>
 <summary>📦 script</summary>
@@ -31,6 +31,7 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 - **no fire rate** — removes fire rate delay on all guns
 - **no spread** — zeroes out bullet spread on all guns
 - **force auto fire** — forces all guns to fire automatically
+- event-driven: mods apply instantly on enable/equip, revert to original values on disable
 
 </details>
 
@@ -38,11 +39,22 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 <summary>aimbot</summary>
 
 - **silent aim** — hooks raycast to redirect bullets to the closest target
-  - fov circle (accent colored) and tracer (mouse to target)
+  - fov circle and tracer with configurable colors
   - configurable radius, bone selection (head / humanoidrootpart)
   - wall check, death check
   - team and inmate type filters (guards, inmates, criminals / regular, aggressive, arrestable)
   - friend check with player whitelist dropdown
+
+</details>
+
+<details>
+<summary>hit sounds</summary>
+
+- **hit sounds** — plays a custom sound when you deal damage to another player
+  - sound selection: rust, minecraft orb
+  - configurable volume (0-3)
+  - mute gun sound toggle — silences the default gun shoot sound
+  - preview button to audition sounds without shooting
 
 </details>
 
@@ -62,13 +74,6 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 
 </details>
 
-<details>
-<summary>character</summary>
-
-- **force field character** — applies forcefield material to your character
-
-</details>
-
 ### world
 
 - **remove doors** — removes all doors from the map (reversible)
@@ -79,10 +84,21 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 - **always backpack** — keeps the backpack enabled even when crouching or tased
 - **anti invisible** — detects and stops the invisibility animation, highlights invisible players in red
 - **anti tase** — counteracts taser effects by stopping stun animations and restoring movement
-- **arrest aura** — automatically arrests nearby players within 10 studs, with friend check and whitelist
+- **arrest aura** — automatically arrests nearby criminals, aggressive and arrestable inmates
+  - configurable radius (5-30 studs)
+  - 3d radius circle rendered at feet level
+  - 3d target line from your feet to the current target
+  - friend check and player whitelist
 - **fist aura** — automatically punches nearby players within 10 studs, with friend check and whitelist
 
 </details>
+
+---
+
+### ⚙️ architecture
+
+- **centralized render loop** — single `RenderStepped` connection with a cached callback system instead of individual connections per feature
+- **table-driven loader** — assets and folders declared as tables, downloaded with error handling and failure notifications
 
 ---
 

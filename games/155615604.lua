@@ -1382,25 +1382,120 @@ do
 
     do
         local ArrestAura = MiscPage:Section({Name = "Arrest Aura", Side = 1}) do
-            local ArrestAuraWhitelist = {}
-            local ArrestAuraFriendCheck = false
+            local Players = game:GetService("Players")
+            local LocalPlayer = Players.LocalPlayer
+            local ArrestRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ArrestPlayer")
 
-            local Enabled = ArrestAura:Toggle({
+            local AAState = {
+                Enabled = false,
+                FriendCheck = false,
+                ShowRadius = false,
+                ShowTarget = false,
+                Radius = 10,
+                Whitelist = {},
+            }
+
+            local function GetInmateStatusAA(character)
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if not humanoid then return "Regular" end
+                local dn = humanoid.DisplayName
+                if string.sub(dn, 1, 4) == "\xF0\x9F\x94\x97" then
+                    return "Arrestable"
+                elseif string.sub(dn, 1, 4) == "\xF0\x9F\x92\xA2" then
+                    return "Aggressive"
+                end
+                return "Regular"
+            end
+
+            local function IsArrestable(player)
+                local teamName = player.Team and player.Team.Name or ""
+                if teamName == "Criminals" then return true end
+                if teamName == "Inmates" then
+                    local char = player.Character
+                    if char then
+                        local status = GetInmateStatusAA(char)
+                        if status == "Arrestable" or status == "Aggressive" then
+                            return true
+                        end
+                    end
+                end
+                return false
+            end
+
+            local CIRCLE_SEGMENTS = 40
+            local RadiusLines = {}
+            for i = 1, CIRCLE_SEGMENTS do
+                local line = Drawing.new("Line")
+                line.Thickness = 1
+                line.Visible = false
+                line.ZIndex = 998
+                line.Transparency = 0.6
+                line.Color = Color3.fromRGB(255, 50, 50)
+                RadiusLines[i] = line
+            end
+
+            local TargetLine = Drawing.new("Line")
+            TargetLine.Thickness = 1.5
+            TargetLine.Visible = false
+            TargetLine.ZIndex = 998
+            TargetLine.Color = Color3.fromRGB(255, 50, 50)
+
+            ArrestAura:Toggle({
                 Name = "Enabled",
                 Flag = "ArrestAuraEnabled",
-                Default = false
+                Default = false,
+                Callback = function(v)
+                    AAState.Enabled = v
+                    if not v then
+                        for _, line in RadiusLines do line.Visible = false end
+                        TargetLine.Visible = false
+                    end
+                end
+            })
+
+            ArrestAura:Slider({
+                Name = "Radius",
+                Flag = "ArrestAuraRadius",
+                Min = 5,
+                Max = 30,
+                Default = 10,
+                Suffix = " studs",
+                Decimals = 1,
+                Callback = function(v) AAState.Radius = v end
+            })
+
+            ArrestAura:Toggle({
+                Name = "Show Radius",
+                Flag = "ArrestAuraShowRadius",
+                Default = false,
+                Callback = function(v)
+                    AAState.ShowRadius = v
+                    if not v then
+                        for _, line in RadiusLines do line.Visible = false end
+                    end
+                end
+            })
+
+            ArrestAura:Toggle({
+                Name = "Show Target",
+                Flag = "ArrestAuraShowTarget",
+                Default = false,
+                Callback = function(v)
+                    AAState.ShowTarget = v
+                    if not v then TargetLine.Visible = false end
+                end
             })
 
             ArrestAura:Toggle({
                 Name = "Friend Check",
                 Flag = "ArrestAuraFriendCheck",
                 Default = false,
-                Callback = function(v) ArrestAuraFriendCheck = v end
+                Callback = function(v) AAState.FriendCheck = v end
             })
 
             local aaPlayerNames = {}
-            for _, p in pairs(game:GetService("Players"):GetPlayers()) do
-                if p ~= game.Players.LocalPlayer then
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer then
                     table.insert(aaPlayerNames, p.Name)
                 end
             end
@@ -1413,43 +1508,116 @@ do
                 Callback = function(v)
                     local set = {}
                     for _, name in pairs(v) do set[name] = true end
-                    ArrestAuraWhitelist = set
+                    AAState.Whitelist = set
                 end
             })
 
-            game:GetService("Players").PlayerAdded:Connect(function(p)
-                AAWhitelistDropdown:Add(p.Name)
-            end)
-            game:GetService("Players").PlayerRemoving:Connect(function(p)
-                AAWhitelistDropdown:Remove(p.Name)
-            end) do
-                local Players = game:GetService("Players")
-                local LocalPlayer = Players.LocalPlayer
-                local ArrestRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ArrestPlayer")
+            Players.PlayerAdded:Connect(function(p) AAWhitelistDropdown:Add(p.Name) end)
+            Players.PlayerRemoving:Connect(function(p) AAWhitelistDropdown:Remove(p.Name) end)
 
-                NewRender(function()
-                    if Enabled:Get() ~= true then return end
-                    local character = LocalPlayer.Character
-                    if not character then return end
-                    local rootPart = character:FindFirstChild("HumanoidRootPart")
-                    if not rootPart then return end
+            NewRender(function()
+                if not AAState.Enabled then
+                    for _, line in RadiusLines do line.Visible = false end
+                    TargetLine.Visible = false
+                    return
+                end
 
-                    for _, player in pairs(Players:GetPlayers()) do
-                        if player == LocalPlayer then continue end
-                        if ArrestAuraWhitelist[player.Name] then continue end
-                        if ArrestAuraFriendCheck and FriendsCache[player.Name] then continue end
-                        local targetChar = player.Character
-                        if not targetChar then continue end
-                        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-                        if not targetRoot then continue end
-                        if (rootPart.Position - targetRoot.Position).Magnitude <= 10 then
-                            pcall(function()
-                                ArrestRemote:InvokeServer(player, 1)
-                            end)
+                local character = LocalPlayer.Character
+                if not character then return end
+                local rootPart = character:FindFirstChild("HumanoidRootPart")
+                if not rootPart then return end
+
+                local Camera = workspace.CurrentCamera
+                local feetY = rootPart.Position.Y - 3
+                local center = Vector3.new(rootPart.Position.X, feetY, rootPart.Position.Z)
+
+                if AAState.ShowRadius then
+                    local angleStep = (2 * math.pi) / CIRCLE_SEGMENTS
+                    local prevScreen = nil
+                    local prevOnScreen = false
+
+                    for i = 1, CIRCLE_SEGMENTS do
+                        local angle = angleStep * i
+                        local worldPoint = center + Vector3.new(math.cos(angle) * AAState.Radius, 0, math.sin(angle) * AAState.Radius)
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(worldPoint)
+                        local curScreen = Vector2.new(screenPos.X, screenPos.Y)
+
+                        if i > 1 then
+                            if onScreen and prevOnScreen then
+                                RadiusLines[i - 1].From = prevScreen
+                                RadiusLines[i - 1].To = curScreen
+                                RadiusLines[i - 1].Visible = true
+                            else
+                                RadiusLines[i - 1].Visible = false
+                            end
+                        end
+
+                        if i == CIRCLE_SEGMENTS then
+                            local firstWorld = center + Vector3.new(math.cos(angleStep) * AAState.Radius, 0, math.sin(angleStep) * AAState.Radius)
+                            local firstPos, firstOn = Camera:WorldToViewportPoint(firstWorld)
+                            if onScreen and firstOn then
+                                RadiusLines[CIRCLE_SEGMENTS].From = curScreen
+                                RadiusLines[CIRCLE_SEGMENTS].To = Vector2.new(firstPos.X, firstPos.Y)
+                                RadiusLines[CIRCLE_SEGMENTS].Visible = true
+                            else
+                                RadiusLines[CIRCLE_SEGMENTS].Visible = false
+                            end
+                        end
+
+                        prevScreen = curScreen
+                        prevOnScreen = onScreen
+                    end
+                else
+                    for _, line in RadiusLines do line.Visible = false end
+                end
+
+                local closestPlayer = nil
+                local closestDist = AAState.Radius
+
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player == LocalPlayer then continue end
+                    if AAState.Whitelist[player.Name] then continue end
+                    if AAState.FriendCheck and FriendsCache[player.Name] then continue end
+                    if not IsArrestable(player) then continue end
+                    local targetChar = player.Character
+                    if not targetChar then continue end
+                    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+                    if not targetRoot then continue end
+                    local dist = (rootPart.Position - targetRoot.Position).Magnitude
+                    if dist <= closestDist then
+                        closestDist = dist
+                        closestPlayer = player
+                    end
+                end
+
+                if closestPlayer then
+                    local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if targetRoot then
+                        pcall(function()
+                            ArrestRemote:InvokeServer(closestPlayer, 1)
+                        end)
+
+                        if AAState.ShowTarget then
+                            local targetFeetY = targetRoot.Position.Y - 3
+                            local fromWorld = Vector3.new(rootPart.Position.X, feetY, rootPart.Position.Z)
+                            local toWorld = Vector3.new(targetRoot.Position.X, targetFeetY, targetRoot.Position.Z)
+                            local fromPos, fromOn = Camera:WorldToViewportPoint(fromWorld)
+                            local toPos, toOn = Camera:WorldToViewportPoint(toWorld)
+                            if fromOn and toOn then
+                                TargetLine.From = Vector2.new(fromPos.X, fromPos.Y)
+                                TargetLine.To = Vector2.new(toPos.X, toPos.Y)
+                                TargetLine.Visible = true
+                            else
+                                TargetLine.Visible = false
+                            end
+                        else
+                            TargetLine.Visible = false
                         end
                     end
-                end)
-            end
+                else
+                    TargetLine.Visible = false
+                end
+            end)
         end
     end
 
