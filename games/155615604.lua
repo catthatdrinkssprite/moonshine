@@ -1,7 +1,7 @@
 local Library = loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/main/libraries/scoot/Library.lua"))()
 
 local Window = Library:Window({
-    Logo = getcustomasset("moonshineimages/moon.png"),
+    Logo = getcustomasset("moonshine/images/moon.png"),
     FadeTime = 0.3,
 })
 
@@ -220,7 +220,9 @@ do
                 local SilentAimState = {
                     Enabled = false,
                     FoVCircle = false,
+                    FoVCircleColor = Library.Theme.Accent,
                     Tracer = false,
+                    TracerColor = Library.Theme.Accent,
                     Radius = 130,
                     Bone = "Head",
                     WallCheck = false,
@@ -245,22 +247,34 @@ do
                 SilentAimSection:Toggle({
                     Name = "Enabled",
                     Flag = "SilentAimEnabled",
-                    Default = false,
+                    Default = SilentAimState.Enabled,
                     Callback = function(v) SilentAimState.Enabled = v end
                 })
 
                 SilentAimSection:Toggle({
                     Name = "FoV Circle",
                     Flag = "SilentAimFoVEnabled",
-                    Default = false,
+                    Default = SilentAimState.FoVCircle,
                     Callback = function(v) SilentAimState.FoVCircle = v end
+                }):Colorpicker({
+                    Name = "Color",
+                    Flag = "SilentAimFoVColor",
+                    Default = SilentAimState.FoVCircleColor,
+                    Alpha = 0,
+                    Callback = function(v) SilentAimState.FoVCircleColor = v end
                 })
 
                 SilentAimSection:Toggle({
                     Name = "Tracer",
                     Flag = "SilentAimTracerEnabled",
-                    Default = false,
+                    Default = SilentAimState.Tracer,
                     Callback = function(v) SilentAimState.Tracer = v end
+                }):Colorpicker({
+                    Name = "Color",
+                    Flag = "SilentAimTracerColor",
+                    Default = SilentAimState.TracerColor,
+                    Alpha = 0,
+                    Callback = function(v) SilentAimState.TracerColor = v end
                 })
 
                 SilentAimSection:Slider({
@@ -269,7 +283,7 @@ do
                     Min = 1,
                     Suffix = "px",
                     Max = 500,
-                    Default = 130,
+                    Default = SilentAimState.Radius,
                     Decimals = 1,
                     Callback = function(v) SilentAimState.Radius = v end
                 })
@@ -277,7 +291,7 @@ do
                 SilentAimSection:Dropdown({
                     Name = "Bone",
                     Flag = "SilentAimBone",
-                    Default = "Head",
+                    Default = SilentAimState.Bone,
                     Multi = false,
                     Items = {"Head", "HumanoidRootPart"},
                     Callback = function(v) SilentAimState.Bone = v end
@@ -286,7 +300,7 @@ do
                 SilentAimSection:Toggle({
                     Name = "Wall Check",
                     Flag = "SilentAimWallCheck",
-                    Default = false,
+                    Default = SilentAimState.WallCheck,
                     Callback = function(v) SilentAimState.WallCheck = v end
                 })
 
@@ -317,14 +331,14 @@ do
                 SilentAimSection:Toggle({
                     Name = "Death Check",
                     Flag = "SilentAimDeathCheck",
-                    Default = true,
+                    Default = SilentAimState.DeathCheck,
                     Callback = function(v) SilentAimState.DeathCheck = v end
                 })
 
                 SilentAimSection:Toggle({
                     Name = "Friend Check",
                     Flag = "SilentAimFriendCheck",
-                    Default = false,
+                    Default = SilentAimState.FriendCheck,
                     Callback = function(v) SilentAimState.FriendCheck = v end
                 }) do
                     local saPlayerNames = {}
@@ -480,7 +494,7 @@ do
                         if SilentAimState.Enabled and SilentAimState.FoVCircle then
                             FoVCircle.Position = getMousePosition()
                             FoVCircle.Radius = SilentAimState.Radius
-                            FoVCircle.Color = Library.Theme.Accent
+                            FoVCircle.Color = SilentAimState.FoVCircleColor
                             FoVCircle.Visible = true
                         else
                             FoVCircle.Visible = false
@@ -493,7 +507,7 @@ do
                                 if OnScreen then
                                     Tracer.From = getMousePosition()
                                     Tracer.To = Vector2.new(ScreenPos.X, ScreenPos.Y)
-                                    Tracer.Color = Library.Theme.Accent
+                                    Tracer.Color = SilentAimState.TracerColor
                                     Tracer.Visible = true
                                 else
                                     Tracer.Visible = false
@@ -788,35 +802,67 @@ do
                 })
             end
 
+            local NameESPState = {
+                Enabled = false,
+                TeamColor = true,
+                Color = Library.Theme.Accent,
+                ShowSelf = false,
+                InmateStatus = true,
+                Outline = true
+            }
+            
             local NameESP = ESPSubPage:Section({Name = "Name ESP", Side = 1}) do
-                local Enabled = NameESP:Toggle({
+                NameESP:Toggle({
                     Name = "Enabled",
                     Flag = "NameESPEnabled",
-                    Default = false
+                    Default = NameESPState.Enabled,
+                    Callback = function(callback)
+                        NameESPState.Enabled = callback
+                    end
                 })
 
-                local TeamColor = NameESP:Toggle({
+                NameESP:Toggle({
                     Name = "Team Color",
                     Flag = "NameESPTeamColor",
-                    Default = true
+                    Default = NameESPState.TeamColor,
+                    Callback = function(callback)
+                        NameESPState.TeamColor = callback
+                    end
+                }):Colorpicker({
+                    Name = "Color",
+                    Flag = "NameESPColor",
+                    Default = NameESPState.Color,
+                    Alpha = 0,
+                    Callback = function(callback)
+                        NameESPState.Color = callback
+                    end
                 })
 
-                local ShowSelf = NameESP:Toggle({
+                NameESP:Toggle({
                     Name = "Show Self",
                     Flag = "NameESPShowSelf",
-                    Default = false
+                    Default = NameESPState.ShowSelf,
+                    Callback = function(callback)
+                        NameESPState.ShowSelf = callback
+                    end
                 })
                 
-                local InmateStatus = NameESP:Toggle({
+                NameESP:Toggle({
                     Name = "Inmate Status",
                     Flag = "NameESPInmateStatus",
-                    Default = true
+                    Default = NameESPState.InmateStatus,
+                    Callback = function(callback)
+                        NameESPState.InmateStatus = callback
+                    end
                 })
 
-                local Outline = NameESP:Toggle({
+                NameESP:Toggle({
                     Name = "Outline",
                     Flag = "NameESPOutline",
-                    Default = true
+                    Default = NameESPState.Outline,
+                    Callback = function(callback)
+                        NameESPState.Outline = callback
+                    end
                 }) do
                     local function Apply(Character)
                         if game.Players:GetPlayerFromCharacter(Character) then
@@ -838,28 +884,28 @@ do
                                         return
                                     end
                                     Text.Position = Vector2.new(pos.X, pos.Y)
-                                    if InmateStatus:Get() == true then
+                                    if NameESPState.InmateStatus == true then
                                         Text.Text = GetDisplayName(Character)
                                     else
                                         Text.Text = Character.Name
                                     end
-                                    if ShowSelf:Get() == true then
-                                        Text.Visible = Enabled:Get()
+                                    if NameESPState.ShowSelf == true then
+                                        Text.Visible = NameESPState.Enabled
                                     else
                                         if Character ~= game.Players.LocalPlayer.Character then
-                                            Text.Visible = Enabled:Get()
+                                            Text.Visible = NameESPState.Enabled
                                         else
                                             Text.Visible = false
                                         end
                                     end
                                     if IsWhitelisted(Player) then
                                         Text.Color = Color3.fromRGB(0, 255, 0)
-                                    elseif TeamColor:Get() == true then
+                                    elseif NameESPState.TeamColor == true then
                                         Text.Color = Player.TeamColor.Color
                                     else
-                                        Text.Color = Library.Theme.Accent
+                                        Text.Color = NameESPState.Color
                                     end
-                                    Text.Outline = Outline:Get()
+                                    Text.Outline = NameESPState.Outline
                                 else
                                     Text.Visible = false
                                 end
@@ -892,28 +938,45 @@ do
             end
 
             local BoxESP = ESPSubPage:Section({Name = "Box ESP", Side = 2}) do
-                local Enabled = BoxESP:Toggle({
+                local BoxESPState = {
+                    Enabled = false,
+                    TeamColor = true,
+                    Color = Library.Theme.Accent,
+                    ShowSelf = false,
+                    Outline = true
+                }
+
+                BoxESP:Toggle({
                     Name = "Enabled",
                     Flag = "BoxESPEnabled",
-                    Default = false
+                    Default = BoxESPState.Enabled,
+                    Callback = function(v) BoxESPState.Enabled = v end
                 })
 
-                local TeamColor = BoxESP:Toggle({
+                BoxESP:Toggle({
                     Name = "Team Color",
                     Flag = "BoxESPTeamColor",
-                    Default = true
+                    Default = BoxESPState.TeamColor,
+                    Callback = function(v) BoxESPState.TeamColor = v end
+                }):Colorpicker({
+                    Name = "Color",
+                    Flag = "BoxESPColor",
+                    Default = BoxESPState.Color,
+                    Callback = function(v) BoxESPState.Color = v end
                 })
 
-                local ShowSelf = BoxESP:Toggle({
+                BoxESP:Toggle({
                     Name = "Show Self",
                     Flag = "BoxESPShowSelf",
-                    Default = false
+                    Default = BoxESPState.ShowSelf,
+                    Callback = function(v) BoxESPState.ShowSelf = v end
                 })
 
-                local Outline = BoxESP:Toggle({
+                BoxESP:Toggle({
                     Name = "Outline",
                     Flag = "BoxESPOutline",
-                    Default = true
+                    Default = BoxESPState.Outline,
+                    Callback = function(v) BoxESPState.Outline = v end
                 }) do
                     local function Apply(Character)
                         if game.Players:GetPlayerFromCharacter(Character) then
@@ -946,13 +1009,13 @@ do
                                     Box.Position = Vector2.new(xPosition, yPosition)
                                     BoxOutline.Size = Vector2.new(width, height)
                                     BoxOutline.Position = Vector2.new(xPosition, yPosition)
-                                    if ShowSelf:Get() == true then
-                                        Box.Visible = Enabled:Get()
-                                        if Box.Visible == true then BoxOutline.Visible = Outline:Get() else BoxOutline.Visible = false end
+                                    if BoxESPState.ShowSelf == true then
+                                        Box.Visible = BoxESPState.Enabled
+                                        if Box.Visible == true then BoxOutline.Visible = BoxESPState.Outline else BoxOutline.Visible = false end
                                     else
                                         if Character ~= game.Players.LocalPlayer.Character then
-                                            Box.Visible = Enabled:Get()
-                                            if Box.Visible == true then BoxOutline.Visible = Outline:Get() else BoxOutline.Visible = false end
+                                            Box.Visible = BoxESPState.Enabled
+                                            if Box.Visible == true then BoxOutline.Visible = BoxESPState.Outline else BoxOutline.Visible = false end
                                         else
                                             Box.Visible = false
                                             BoxOutline.Visible = false
@@ -960,10 +1023,10 @@ do
                                     end
                                     if IsWhitelisted(Player) then
                                         Box.Color = Color3.fromRGB(0, 255, 0)
-                                    elseif TeamColor:Get() == true then
+                                    elseif BoxESPState.TeamColor == true then
                                         Box.Color = Player.TeamColor.Color
                                     else
-                                        Box.Color = Library.Theme.Accent
+                                        Box.Color = BoxESPState.Color
                                     end
                                 else
                                     Box.Visible = false
