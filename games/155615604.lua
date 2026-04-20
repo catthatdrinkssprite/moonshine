@@ -1303,12 +1303,16 @@ do
                 Default = false,
                 Callback = function(callback)
                     if callback == true then
+                        local Doors = workspace:FindFirstChild("Doors")
+                        if not Doors then return end
                         local TemporaryDoorFolder = Instance.new("Folder", game.Lighting)
                         TemporaryDoorFolder.Name = "TemporaryDoorFolder"
-                        workspace.Doors.Parent = TemporaryDoorFolder
+                        Doors.Parent = TemporaryDoorFolder
                     else
-                        local TemporaryDoorFolder = game.Lighting.TemporaryDoorFolder
-                        TemporaryDoorFolder.Doors.Parent = workspace
+                        local TemporaryDoorFolder = game.Lighting:FindFirstChild("TemporaryDoorFolder")
+                        if not TemporaryDoorFolder then return end
+                        local Doors = TemporaryDoorFolder:FindFirstChild("Doors")
+                        if Doors then Doors.Parent = workspace end
                         TemporaryDoorFolder:Destroy()
                     end
                 end
@@ -1324,7 +1328,11 @@ do
                 Default = false
             }) do
                 NewRender(function()
-                    game.Players.LocalPlayer.Character.AntiJump.Disabled = Enabled:Get()
+                    local character = game.Players.LocalPlayer.Character
+                    if not character then return end
+                    local antiJump = character:FindFirstChild("AntiJump")
+                    if not antiJump then return end
+                    antiJump.Disabled = Enabled:Get()
                 end)
             end
         end
