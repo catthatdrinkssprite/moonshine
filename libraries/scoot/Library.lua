@@ -4853,6 +4853,10 @@ local Library do
             Items["Watermark"].Instance.Visible = Bool
         end
 
+        function Watermark:SetText(Text)
+            Items["Text"].Instance.Text = Text
+        end
+
         return Watermark
     end
 

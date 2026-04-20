@@ -7,7 +7,7 @@ local Window = Library:Window({
 
 Library.MenuKeybind = tostring(Enum.KeyCode.Delete)
 
-local Watermark = Library:Watermark("moonshine | 155615604.lua")
+local Watermark = Library:Watermark("moonshine | Prison Life")
 local KeybindList = Library:KeybindList()
 
 do
@@ -63,6 +63,36 @@ do
             Connection.Function(Delta)
         end
     end)
+
+    local PingWarningEnabled = false
+    local PingThreshold = 0.3
+    local LastPingWarning = 0
+    local PingCooldown = 30
+
+    do
+        local LastFPS = 0
+        local FrameCount = 0
+        local LastFPSUpdate = os.clock()
+
+        NewRender(function(Delta)
+            FrameCount = FrameCount + 1
+            local now = os.clock()
+            if now - LastFPSUpdate >= 0.5 then
+                LastFPS = math.floor(FrameCount / (now - LastFPSUpdate))
+                FrameCount = 0
+                LastFPSUpdate = now
+            end
+
+            local ping = game.Players.LocalPlayer:GetNetworkPing()
+            local pingMs = math.floor(ping * 1000)
+            Watermark:SetText(string.format("moonshine | Prison Life | %d FPS | %dms", LastFPS, pingMs))
+
+            if PingWarningEnabled and ping >= PingThreshold and (now - LastPingWarning) >= PingCooldown then
+                LastPingWarning = now
+                Library:Notification("High Ping", string.format("Your ping is %dms — gameplay may be unplayable.", pingMs), 5)
+            end
+        end)
+    end
 
     do
         local GunModsSubPage = CombatPage:SubPage({Name = "Gun Mods", Columns = 2})
@@ -1143,7 +1173,9 @@ do
 
                             local Render = NewRender(function()
                                 local hrp = Character:FindFirstChild("HumanoidRootPart")
-                                if not hrp then return end
+                                if not hrp then Text.Visible = false return end
+                                local hum = Character:FindFirstChildOfClass("Humanoid")
+                                if not hum or hum.Health <= 0 then Text.Visible = false return end
                                 local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
                                 if onscreen then
                                     if not ShouldShowPlayer(Player) then
@@ -1259,7 +1291,9 @@ do
 
                             local Render = NewRender(function()
                                 local hrp = Character:FindFirstChild("HumanoidRootPart")
-                                if not hrp then return end
+                                if not hrp then Box.Visible = false BoxOutline.Visible = false return end
+                                local hum = Character:FindFirstChildOfClass("Humanoid")
+                                if not hum or hum.Health <= 0 then Box.Visible = false BoxOutline.Visible = false return end
                                 local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
                                 if onscreen then
                                     if not ShouldShowPlayer(Player) then
@@ -1354,6 +1388,21 @@ do
                         RemovedDoorsRef = nil
                     end
                 end
+            })
+        end
+    end
+
+    do
+        local PingWarning = MiscPage:Section({Name = "Ping Warning", Side = 2}) do
+            PingWarning:Toggle({
+                Name = "Enabled",
+                ToolTip = {
+                    Name = "Ping Warning",
+                    Description = "Notifies you when your ping exceeds 300ms"
+                },
+                Flag = "PingWarningEnabled",
+                Default = false,
+                Callback = function(v) PingWarningEnabled = v end
             })
         end
     end
@@ -1466,6 +1515,9 @@ do
                 Default = false
             }) do
 
+                local PreTaseSpeed = 16
+                local PreTaseJumpHeight = 5.5
+
                 NewRender(function()
                     if Enabled:Get() ~= true then return end
                     local character = game.Players.LocalPlayer.Character
@@ -1485,8 +1537,15 @@ do
                     end
 
                     if tazed then
-                        humanoid.WalkSpeed = 16
-                        humanoid.JumpHeight = 5.5
+                        humanoid.WalkSpeed = PreTaseSpeed
+                        humanoid.JumpHeight = PreTaseJumpHeight
+                    else
+                        if humanoid.WalkSpeed > 0 then
+                            PreTaseSpeed = humanoid.WalkSpeed
+                        end
+                        if humanoid.JumpHeight > 0 then
+                            PreTaseJumpHeight = humanoid.JumpHeight
+                        end
                     end
                 end)
             end
