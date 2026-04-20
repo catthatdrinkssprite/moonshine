@@ -7,7 +7,7 @@ a fully opensource script for roblox
 ## 🎮 supported games
 | game name | place id | lines of code |
 | --- | --- | --- |
-| prison life | 155615604 | ~1700 |
+| prison life | 155615604 | ~2000 |
 
 ## 💻 recommended executors
 | executor | sunc | price |
@@ -47,10 +47,10 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 <summary>aimbot</summary>
 
 - **silent aim** — hooks raycast to redirect bullets to the closest target
-  - **triggerbot** — automatically fires when a valid target is within the fov circle
+  - **triggerbot** — automatically fires when a valid target is within the fov circle (ranged weapons only)
   - fov circle and tracer with configurable colors
   - configurable radius, bone selection (head / humanoidrootpart)
-  - wall check, death check
+  - wall check (respects removed doors server-side), death check, forcefield check
   - team and inmate type filters (guards, inmates, criminals / regular, aggressive, arrestable)
   - friend check with player whitelist dropdown
 
@@ -81,8 +81,9 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 <summary>esp</summary>
 
 - **filters** — filter by team and inmate type, whitelist specific players (hide esp or show green)
-- **name esp** — floating names above players with team color, inmate status prefixes ([A] / [W]), outline
+- **name esp** — floating names above players with team color, inmate status prefixes ([A] / [W]), forcefield prefix ([FF]), outline
 - **box esp** — 2d bounding boxes around players with team color, outline
+- both esp types instantly hide on player death
 
 </details>
 
@@ -92,10 +93,12 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 
 ### misc
 
+- **ping warning** — toggleable notification when ping exceeds 300ms (30s cooldown)
 - **remove jump cooldown** — disables the anti-jump cooldown script
 - **always backpack** — keeps the backpack enabled even when crouching or tased
 - **anti invisible** — detects and stops the invisibility animation, highlights invisible players in red
 - **anti tase** — counteracts taser effects by stopping stun animations and restoring movement
+  - preserves sprint speed — restores your actual speed before being tased instead of defaulting to walk
 - **arrest aura** — automatically arrests nearby criminals, aggressive and arrestable inmates
   - configurable radius (5-30 studs)
   - 3d radius circle rendered at feet level
@@ -109,6 +112,10 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
   - friend check and player whitelist
 - **anti riot shield** — removes riot shield parts from all players' characters
 
+### watermark
+
+- **live stats** — watermark displays real-time fps and ping
+
 </details>
 
 ---
@@ -118,6 +125,7 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 - **centralized render loop** — single `RenderStepped` connection with a cached callback system instead of individual connections per feature
 - **table-driven loader** — assets and folders declared as tables, downloaded with error handling and failure notifications
 - **[quartz](https://github.com/notpoiu/Quartz) compatibility layer** — automatically tests and polyfills missing executor functions at startup, ensuring cross-executor support
+- **executor capability validation** — checks for critical functions after quartz patching, notifies and bails cleanly if the executor is incompatible
 
 ---
 
