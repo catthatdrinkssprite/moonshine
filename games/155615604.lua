@@ -895,32 +895,6 @@ do
     end
 
     do
-        local CharacterSubPage = VisualsPage:SubPage({Name = "Character", Columns = 2})
-
-        do
-            local ForceFieldCharacter = CharacterSubPage:Section({Name = "Force Field Character", Side = 1}) do
-                local Enabled = ForceFieldCharacter:Toggle({
-                    Name = "Enabled",
-                    Flag = "ForceFieldCharacterEnabled",
-                    Default = false
-                }) do
-                    game.RunService.RenderStepped:Connect(function()
-                        for _, limb in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
-                            if limb:IsA("BasePart") then
-                                if Enabled:Get() == true then
-                                    limb.Material = Enum.Material.ForceField
-                                else
-                                    limb.Material = Enum.Material.Plastic
-                                end
-                            end
-                        end
-                    end)
-                end
-            end
-        end
-    end
-
-    do
         local RemoveDoors = WorldPage:Section({Name = "Remove Doors", Side = 1}) do
             local Enabled = RemoveDoors:Toggle({
                 Name = "Enabled",
