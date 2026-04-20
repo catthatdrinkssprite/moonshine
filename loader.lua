@@ -12,7 +12,7 @@ if not isfolder("moonshine/images") then
 end
 
 if not isfile("moonshine/images/moon.png") then
-    writefile("moonshine/images/moon.png", game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/main/moonshineimages/moon.png", true))
+    writefile("moonshine/images/moon.png", game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/main/moonshine/images/moon.png", true))
 end
 
 if success and type(result) == "function" then
