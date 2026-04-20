@@ -119,10 +119,16 @@ do
                 end
             end
 
+            local GunModFlags = {
+                NoFireRate = false,
+                NoSpread = false,
+                ForceAutoFire = false,
+            }
+
             local function ApplyAllMods(tool)
-                ApplyMod(tool, "FireRate", 0, function() return Library.Flags["NoFireRateEnabled"]:Get() end)
-                ApplyMod(tool, "SpreadRadius", 0, function() return Library.Flags["NoSpreadEnabled"]:Get() end)
-                ApplyMod(tool, "AutoFire", true, function() return Library.Flags["ForceAutoFireEnabled"]:Get() end)
+                ApplyMod(tool, "FireRate", 0, function() return GunModFlags.NoFireRate end)
+                ApplyMod(tool, "SpreadRadius", 0, function() return GunModFlags.NoSpread end)
+                ApplyMod(tool, "AutoFire", true, function() return GunModFlags.ForceAutoFire end)
             end
 
             local function ConnectContainer(container)
@@ -152,6 +158,7 @@ do
                     Flag = "NoFireRateEnabled",
                     Default = false,
                     Callback = function(state)
+                        GunModFlags.NoFireRate = state
                         if state then
                             if not NotificationShown["NoFireRate"] then
                                 NotificationShown["NoFireRate"] = true
@@ -173,6 +180,7 @@ do
                     Flag = "NoSpreadEnabled",
                     Default = false,
                     Callback = function(state)
+                        GunModFlags.NoSpread = state
                         if state then
                             for _, tool in pairs(GetAllTools()) do
                                 ApplyMod(tool, "SpreadRadius", 0, function() return true end)
@@ -190,6 +198,7 @@ do
                     Flag = "ForceAutoFireEnabled",
                     Default = false,
                     Callback = function(state)
+                        GunModFlags.ForceAutoFire = state
                         if state then
                             for _, tool in pairs(GetAllTools()) do
                                 ApplyMod(tool, "AutoFire", true, function() return true end)
