@@ -1011,24 +1011,28 @@ do
                 Flag = "AntiTaseEnabled",
                 Default = false
             }) do
-                local PlayerTased = game:GetService("ReplicatedStorage"):WaitForChild("GunRemotes"):WaitForChild("PlayerTased")
-                local disabledConns = {}
 
                 game.RunService.RenderStepped:Connect(function()
-                    if Enabled:Get() == true then
-                        if #disabledConns == 0 then
-                            for _, conn in pairs(getconnections(PlayerTased.OnClientEvent)) do
-                                conn:Disable()
-                                table.insert(disabledConns, conn)
-                            end
+                    if Enabled:Get() ~= true then return end
+                    local character = game.Players.LocalPlayer.Character
+                    if not character then return end
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    if not humanoid then return end
+                    local animator = humanoid:FindFirstChildOfClass("Animator")
+                    if not animator then return end
+
+                    local tazed = false
+                    for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                        local animId = track.Animation and track.Animation.AnimationId or ""
+                        if animId == "rbxassetid://279227693" or animId == "rbxassetid://279229192" then
+                            track:Stop(0)
+                            tazed = true
                         end
-                    else
-                        if #disabledConns > 0 then
-                            for _, conn in pairs(disabledConns) do
-                                conn:Enable()
-                            end
-                            disabledConns = {}
-                        end
+                    end
+
+                    if tazed then
+                        humanoid.WalkSpeed = 16
+                        humanoid.JumpHeight = 5.5
                     end
                 end)
             end
@@ -1038,11 +1042,19 @@ do
     do
         local ArrestAura = MiscPage:Section({Name = "Arrest Aura", Side = 1}) do
             local ArrestAuraWhitelist = {}
+            local ArrestAuraFriendCheck = false
 
             local Enabled = ArrestAura:Toggle({
                 Name = "Enabled",
                 Flag = "ArrestAuraEnabled",
                 Default = false
+            })
+
+            ArrestAura:Toggle({
+                Name = "Friend Check",
+                Flag = "ArrestAuraFriendCheck",
+                Default = false,
+                Callback = function(v) ArrestAuraFriendCheck = v end
             })
 
             local aaPlayerNames = {}
@@ -1083,7 +1095,7 @@ do
 
                     for _, player in pairs(Players:GetPlayers()) do
                         if player == LocalPlayer then continue end
-                        if ArrestAuraWhitelist[player.Name] then continue end
+                        if ArrestAuraFriendCheck and ArrestAuraWhitelist[player.Name] then continue end
                         local targetChar = player.Character
                         if not targetChar then continue end
                         local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
@@ -1102,11 +1114,19 @@ do
     do
         local FistAura = MiscPage:Section({Name = "Fist Aura", Side = 2}) do
             local FistAuraWhitelist = {}
+            local FistAuraFriendCheck = false
 
             local Enabled = FistAura:Toggle({
                 Name = "Enabled",
                 Flag = "FistAuraEnabled",
                 Default = false
+            })
+
+            FistAura:Toggle({
+                Name = "Friend Check",
+                Flag = "FistAuraFriendCheck",
+                Default = false,
+                Callback = function(v) FistAuraFriendCheck = v end
             })
 
             local faPlayerNames = {}
@@ -1147,7 +1167,7 @@ do
 
                     for _, player in pairs(Players:GetPlayers()) do
                         if player == LocalPlayer then continue end
-                        if FistAuraWhitelist[player.Name] then continue end
+                        if FistAuraFriendCheck and FistAuraWhitelist[player.Name] then continue end
                         local targetChar = player.Character
                         if not targetChar then continue end
                         local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
