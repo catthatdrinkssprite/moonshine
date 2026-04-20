@@ -18,8 +18,6 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 
 </details>
 
-</div>
-
 ---
 
 <details>
@@ -87,8 +85,6 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 </details>
 
 ---
-
-<div align='center'>
 
 ## 🛡️ license
 
