@@ -2,7 +2,7 @@
 
 # 🌙 moonshine
 
-> a fully opensource script for roblox
+a fully opensource script for roblox
 
 ## 🎮 supported games
 | game name | place id | lines of code |
