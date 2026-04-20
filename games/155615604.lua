@@ -229,6 +229,7 @@ do
                     Radius = 130,
                     Bone = "Head",
                     WallCheck = false,
+                    ForceFieldCheck = true,
                     Teams = {},
                     InmateTypes = {},
                     DeathCheck = true,
@@ -316,6 +317,13 @@ do
                     Flag = "SilentAimWallCheck",
                     Default = SilentAimState.WallCheck,
                     Callback = function(v) SilentAimState.WallCheck = v end
+                })
+
+                SilentAimSection:Toggle({
+                    Name = "ForceField Check",
+                    Flag = "SilentAimForceFieldCheck",
+                    Default = SilentAimState.ForceFieldCheck,
+                    Callback = function(v) SilentAimState.ForceFieldCheck = v end
                 })
 
                 SilentAimSection:Dropdown({
@@ -495,6 +503,7 @@ do
 
                             local Humanoid = FindFirstChild(Character, "Humanoid")
                             if SilentAimState.DeathCheck and (not Humanoid or Humanoid.Health <= 0) then continue end
+                            if SilentAimState.ForceFieldCheck and Character:FindFirstChildOfClass("ForceField") then continue end
 
                             local HumanoidRootPart = FindFirstChild(Character, "HumanoidRootPart")
                             if not HumanoidRootPart then continue end
@@ -979,13 +988,17 @@ do
             local function GetDisplayName(Character)
                 local humanoid = Character:FindFirstChildOfClass("Humanoid")
                 if not humanoid then return Character.Name end
+                local prefix = ""
+                if Character:FindFirstChildOfClass("ForceField") then
+                    prefix = "[FF] "
+                end
                 local displayName = humanoid.DisplayName
                 if string.sub(displayName, 1, 4) == "\xF0\x9F\x94\x97" then
-                    return "[W] " .. Character.Name
+                    return prefix .. "[W] " .. Character.Name
                 elseif string.sub(displayName, 1, 4) == "\xF0\x9F\x92\xA2" then
-                    return "[A] " .. Character.Name
+                    return prefix .. "[A] " .. Character.Name
                 end
-                return Character.Name
+                return prefix .. Character.Name
             end
 
             local ESPFilters = ESPSubPage:Section({Name = "Filters", Side = 1}) do
