@@ -875,7 +875,9 @@ do
                             Text.OutlineColor = Color3.fromRGB(0, 0, 0)
 
                             local Render = NewRender(function()
-                                local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(Character.HumanoidRootPart.Position)
+                                local hrp = Character:FindFirstChild("HumanoidRootPart")
+                                if not hrp then return end
+                                local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
                                 if onscreen then
                                     if not ShouldShowPlayer(Player) then
                                         Text.Visible = false
@@ -989,7 +991,9 @@ do
                             BoxOutline.Color = Color3.fromRGB(0, 0, 0)
 
                             local Render = NewRender(function()
-                                local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(Character.HumanoidRootPart.Position)
+                                local hrp = Character:FindFirstChild("HumanoidRootPart")
+                                if not hrp then return end
+                                local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
                                 if onscreen then
                                     if not ShouldShowPlayer(Player) then
                                         Box.Visible = false
