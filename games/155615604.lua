@@ -40,72 +40,165 @@ do
         end)
     end
 
+    local RunService = game:GetService("RunService")
+    local RenderCache = {}
+    local NotificationShown = {}
+
+    local function NewRender(Callback)
+        local Connection = {
+            Function = Callback,
+        }
+        local Index = #RenderCache + 1
+        RenderCache[Index] = Connection
+        Connection.Disconnect = function(self)
+            if RenderCache[Index] then RenderCache[Index] = nil end
+        end
+        return Connection
+    end
+
+    RunService.RenderStepped:Connect(function(Delta)
+        for _, Connection in RenderCache do
+            Connection.Function(Delta)
+        end
+    end)
+
     do
         local GunModsSubPage = CombatPage:SubPage({Name = "Gun Mods", Columns = 2})
 
         do
+            local LP = game:GetService("Players").LocalPlayer
+            local OriginalValues = {}
+            local GunModConnections = {}
+
+            local function GetToolKey(tool)
+                return tostring(tool) .. "_" .. tool:GetDebugId()
+            end
+
+            local function GetAllTools()
+                local tools = {}
+                for _, tool in pairs(LP.Backpack:GetChildren()) do
+                    if tool:IsA("Tool") then table.insert(tools, tool) end
+                end
+                local char = LP.Character
+                if char then
+                    for _, tool in pairs(char:GetChildren()) do
+                        if tool:IsA("Tool") then table.insert(tools, tool) end
+                    end
+                end
+                return tools
+            end
+
+            local function SaveOriginal(tool, attr)
+                local key = GetToolKey(tool)
+                if not OriginalValues[key] then OriginalValues[key] = {} end
+                if OriginalValues[key][attr] == nil then
+                    OriginalValues[key][attr] = tool:GetAttribute(attr)
+                end
+            end
+
+            local function RestoreOriginal(tool, attr)
+                local key = GetToolKey(tool)
+                if OriginalValues[key] and OriginalValues[key][attr] ~= nil then
+                    tool:SetAttribute(attr, OriginalValues[key][attr])
+                    OriginalValues[key][attr] = nil
+                    if not next(OriginalValues[key]) then OriginalValues[key] = nil end
+                end
+            end
+
+            local function ApplyMod(tool, attr, value, flagGet)
+                if not tool:IsA("Tool") then return end
+                if tool:GetAttribute(attr) == nil then return end
+                if flagGet() ~= true then return end
+                SaveOriginal(tool, attr)
+                tool:SetAttribute(attr, value)
+            end
+
+            local function RevertMod(attr)
+                for _, tool in pairs(GetAllTools()) do
+                    RestoreOriginal(tool, attr)
+                end
+            end
+
+            local function ApplyAllMods(tool)
+                ApplyMod(tool, "FireRate", 0, function() return Library.Flags["NoFireRateEnabled"]:Get() end)
+                ApplyMod(tool, "SpreadRadius", 0, function() return Library.Flags["NoSpreadEnabled"]:Get() end)
+                ApplyMod(tool, "AutoFire", true, function() return Library.Flags["ForceAutoFireEnabled"]:Get() end)
+            end
+
+            local function ConnectContainer(container)
+                local conn = container.ChildAdded:Connect(function(tool)
+                    if tool:IsA("Tool") then
+                        task.defer(ApplyAllMods, tool)
+                    end
+                end)
+                table.insert(GunModConnections, conn)
+            end
+
+            ConnectContainer(LP.Backpack)
+            if LP.Character then ConnectContainer(LP.Character) end
+            local charConn = LP.CharacterAdded:Connect(function(char)
+                ConnectContainer(char)
+                task.defer(function()
+                    for _, tool in pairs(GetAllTools()) do
+                        ApplyAllMods(tool)
+                    end
+                end)
+            end)
+            table.insert(GunModConnections, charConn)
+
             local NoFireRate = GunModsSubPage:Section({Name = "No Fire Rate", Side = 1}) do
-                local Enabled = NoFireRate:Toggle({
+                NoFireRate:Toggle({
                     Name = "Enabled",
                     Flag = "NoFireRateEnabled",
                     Default = false,
-                    Callback = function(callback)
-                        if callback == true then
-                            Library:Notification("Warning.", "It is recommended to use 60 FPS or below unless you want your bullets to come instantly.", 5)
-                            Library:Notification("Notice.", "Mods will go away on new guns upon disabling.", 5)
+                    Callback = function(state)
+                        if state then
+                            if not NotificationShown["NoFireRate"] then
+                                NotificationShown["NoFireRate"] = true
+                                Library:Notification("Warning.", "It is recommended to use 60 FPS or below unless you want your bullets to come instantly.", 5)
+                            end
+                            for _, tool in pairs(GetAllTools()) do
+                                ApplyMod(tool, "FireRate", 0, function() return true end)
+                            end
+                        else
+                            RevertMod("FireRate")
                         end
                     end
-                }) do
-                    game.RunService.RenderStepped:Connect(function()
-                        for _, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-                            if Enabled:Get() == true and tool:IsA("Tool") and tool:GetAttribute("FireRate") ~= nil then
-                                tool:SetAttribute("FireRate", 0)
-                            end
-                        end
-                    end)
-                end
+                })
             end
 
             local NoSpread = GunModsSubPage:Section({Name = "No Spread", Side = 2}) do
-                local Enabled = NoSpread:Toggle({
+                NoSpread:Toggle({
                     Name = "Enabled",
                     Flag = "NoSpreadEnabled",
                     Default = false,
-                    Callback = function(callback)
-                        if callback == true then
-                            Library:Notification("Notice.", "Mods will go away on new guns upon disabling.", 5)
+                    Callback = function(state)
+                        if state then
+                            for _, tool in pairs(GetAllTools()) do
+                                ApplyMod(tool, "SpreadRadius", 0, function() return true end)
+                            end
+                        else
+                            RevertMod("SpreadRadius")
                         end
                     end
-                }) do
-                    game.RunService.RenderStepped:Connect(function()
-                        for _, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-                            if Enabled:Get() == true and tool:IsA("Tool") and tool:GetAttribute("SpreadRadius") ~= nil then
-                                tool:SetAttribute("SpreadRadius", 0)
-                            end
-                        end
-                    end)
-                end
+                })
             end
 
             local ForceAutoFire = GunModsSubPage:Section({Name = "Force Auto Fire", Side = 1}) do
-                local Enabled = ForceAutoFire:Toggle({
+                ForceAutoFire:Toggle({
                     Name = "Enabled",
                     Flag = "ForceAutoFireEnabled",
                     Default = false,
-                    Callback = function(callback)
-                        if callback == true then
-                            Library:Notification("Notice.", "Mods will go away on new guns upon disabling.", 5)
+                    Callback = function(state)
+                        if state then
+                            for _, tool in pairs(GetAllTools()) do
+                                ApplyMod(tool, "AutoFire", true, function() return true end)
+                            end
+                        else
+                            RevertMod("AutoFire")
                         end
                     end
-                }) do
-                    game.RunService.RenderStepped:Connect(function()
-                        for _, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-                            if Enabled:Get() == true and tool:IsA("Tool") and tool:GetAttribute("AutoFire") ~= nil then
-                                tool:SetAttribute("AutoFire", true)
-                            end
-                        end
-                    end)
-                end
+                })
             end
         end
     end
@@ -372,7 +465,7 @@ do
                         return Closest
                     end
 
-                    game.RunService.RenderStepped:Connect(function()
+                    NewRender(function()
                         Camera = workspace.CurrentCamera
 
                         if SilentAimState.Enabled and SilentAimState.FoVCircle then
@@ -403,6 +496,7 @@ do
                             Tracer.Visible = false
                         end
                     end)
+
 
                     local oldNamecall
                     oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
@@ -541,7 +635,7 @@ do
                         debounce = false
                     end
 
-                    game.RunService.RenderStepped:Connect(function()
+                    NewRender(function()
                         if InfJumpEnabled:Get() == true then
                             EnableInfJump()
                         else
@@ -725,7 +819,7 @@ do
                             Text.Center = true
                             Text.OutlineColor = Color3.fromRGB(0, 0, 0)
 
-                            local Render = game.RunService.RenderStepped:Connect(function()
+                            local Render = NewRender(function()
                                 local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(Character.HumanoidRootPart.Position)
                                 if onscreen then
                                     if not ShouldShowPlayer(Player) then
@@ -822,7 +916,7 @@ do
                             BoxOutline.ZIndex = 1
                             BoxOutline.Color = Color3.fromRGB(0, 0, 0)
 
-                            local Render = game.RunService.RenderStepped:Connect(function()
+                            local Render = NewRender(function()
                                 local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(Character.HumanoidRootPart.Position)
                                 if onscreen then
                                     if not ShouldShowPlayer(Player) then
@@ -922,7 +1016,7 @@ do
                 Flag = "RemoveJumpCooldownEnabled",
                 Default = false
             }) do
-                game.RunService.RenderStepped:Connect(function()
+                NewRender(function()
                     game.Players.LocalPlayer.Character.AntiJump.Disabled = Enabled:Get()
                 end)
             end
@@ -961,7 +1055,7 @@ do
                     end
                 end
 
-                game.RunService.RenderStepped:Connect(function()
+                NewRender(function()
                     if Enabled:Get() == true then
                         for _, player in pairs(game:GetService("Players"):GetPlayers()) do
                             if player == game.Players.LocalPlayer then continue end
@@ -1019,7 +1113,7 @@ do
                 Default = false
             }) do
 
-                game.RunService.RenderStepped:Connect(function()
+                NewRender(function()
                     if Enabled:Get() ~= true then return end
                     local character = game.Players.LocalPlayer.Character
                     if not character then return end
@@ -1093,7 +1187,7 @@ do
                 local LocalPlayer = Players.LocalPlayer
                 local ArrestRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ArrestPlayer")
 
-                game.RunService.RenderStepped:Connect(function()
+                NewRender(function()
                     if Enabled:Get() ~= true then return end
                     local character = LocalPlayer.Character
                     if not character then return end
@@ -1166,7 +1260,7 @@ do
                 local LocalPlayer = Players.LocalPlayer
                 local MeleeRemote = game:GetService("ReplicatedStorage"):WaitForChild("meleeEvent")
 
-                game.RunService.RenderStepped:Connect(function()
+                NewRender(function()
                     if Enabled:Get() ~= true then return end
                     local character = LocalPlayer.Character
                     if not character then return end
