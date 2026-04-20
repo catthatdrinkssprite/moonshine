@@ -577,108 +577,126 @@ do
         local HitSoundsSubPage = CombatPage:SubPage({Name = "Hit Sounds", Columns = 2})
 
         do
-            local HitSoundsSection = HitSoundsSubPage:Section({Name = "Hit Sounds", Side = 1}) do
-                local HitSoundState = {
-                    Enabled = false,
-                    Volume = 1,
-                    Sound = "rust.mp3",
-                    MuteGunSound = false,
-                }
+            local SoundFiles = {
+                ["rust.mp3"] = getcustomasset("moonshine/sounds/rust.mp3"),
+                ["minecraft orb.mp3"] = getcustomasset("moonshine/sounds/minecraft orb.mp3"),
+            }
 
-                local SoundFiles = {
-                    ["rust.mp3"] = getcustomasset("moonshine/sounds/rust.mp3"),
-                    ["minecraft orb.mp3"] = getcustomasset("moonshine/sounds/minecraft orb.mp3"),
-                }
+            local Players = game:GetService("Players")
+            local LocalPlayer = Players.LocalPlayer
+            local HealthConnections = {}
+            local LastFireTime = 0
+            local HIT_WINDOW = 0.35
 
-                local Players = game:GetService("Players")
-                local LocalPlayer = Players.LocalPlayer
-                local HealthConnections = {}
-                local LastFireTime = 0
-                local HIT_WINDOW = 0.35
-                local ToolActivatedConn = nil
+            local HitSoundState = {
+                Enabled = false,
+                Volume = 1,
+                Sound = "rust.mp3",
+                MuteGunSound = false,
+            }
 
-                local function PlayHitSound()
-                    local id = SoundFiles[HitSoundState.Sound]
-                    if not id then return end
-                    local sound = Instance.new("Sound")
-                    sound.SoundId = id
-                    sound.Volume = HitSoundState.Volume
-                    sound.PlayOnRemove = true
-                    sound.Parent = workspace
-                    sound:Destroy()
+            local KillSoundState = {
+                Enabled = false,
+                Volume = 1,
+                Sound = "minecraft orb.mp3",
+            }
+
+            local function PlaySound(soundFile, volume)
+                local id = SoundFiles[soundFile]
+                if not id then return end
+                local sound = Instance.new("Sound")
+                sound.SoundId = id
+                sound.Volume = volume
+                sound.PlayOnRemove = true
+                sound.Parent = workspace
+                sound:Destroy()
+            end
+
+            local function PlayHitSound()
+                PlaySound(HitSoundState.Sound, HitSoundState.Volume)
+            end
+
+            local function PlayKillSound()
+                PlaySound(KillSoundState.Sound, KillSoundState.Volume)
+            end
+
+            local function MuteShootSound(tool)
+                local handle = tool:FindFirstChild("Handle")
+                if not handle then return end
+                local shootSound = handle:FindFirstChild("ShootSound")
+                if not shootSound or not shootSound:IsA("Sound") then return end
+                if HitSoundState.MuteGunSound then
+                    shootSound.Volume = 0
                 end
+            end
 
-                local function MuteShootSound(tool)
-                    local handle = tool:FindFirstChild("Handle")
-                    if not handle then return end
-                    local shootSound = handle:FindFirstChild("ShootSound")
-                    if not shootSound or not shootSound:IsA("Sound") then return end
-                    if HitSoundState.MuteGunSound then
-                        shootSound.Volume = 0
-                    end
+            local function HookTool(tool)
+                if not tool:IsA("Tool") then return end
+                tool.Activated:Connect(function()
+                    LastFireTime = tick()
+                    MuteShootSound(tool)
+                end)
+            end
+
+            local function HookCharacter(character)
+                for _, child in pairs(character:GetChildren()) do
+                    HookTool(child)
                 end
+                character.ChildAdded:Connect(HookTool)
+            end
 
-                local function HookTool(tool)
-                    if not tool:IsA("Tool") then return end
-                    tool.Activated:Connect(function()
-                        LastFireTime = tick()
-                        MuteShootSound(tool)
-                    end)
-                end
+            if LocalPlayer.Character then HookCharacter(LocalPlayer.Character) end
+            LocalPlayer.CharacterAdded:Connect(HookCharacter)
+            LocalPlayer.Backpack.ChildAdded:Connect(HookTool)
+            for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+                HookTool(tool)
+            end
 
-                local function HookCharacter(character)
-                    for _, child in pairs(character:GetChildren()) do
-                        HookTool(child)
-                    end
-                    character.ChildAdded:Connect(HookTool)
-                end
+            local function TrackPlayer(player)
+                if player == LocalPlayer then return end
 
-                if LocalPlayer.Character then HookCharacter(LocalPlayer.Character) end
-                LocalPlayer.CharacterAdded:Connect(HookCharacter)
-                LocalPlayer.Backpack.ChildAdded:Connect(HookTool)
-                for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
-                    HookTool(tool)
-                end
+                local function ConnectHealth(character)
+                    local humanoid = character:WaitForChild("Humanoid", 5)
+                    if not humanoid then return end
+                    local lastHealth = humanoid.Health
 
-                local function TrackPlayer(player)
-                    if player == LocalPlayer then return end
-
-                    local function ConnectHealth(character)
-                        local humanoid = character:WaitForChild("Humanoid", 5)
-                        if not humanoid then return end
-                        local lastHealth = humanoid.Health
-
-                        if HealthConnections[player] then
-                            HealthConnections[player]:Disconnect()
-                        end
-
-                        HealthConnections[player] = humanoid.HealthChanged:Connect(function(newHealth)
-                            if HitSoundState.Enabled and newHealth < lastHealth and (tick() - LastFireTime) <= HIT_WINDOW then
-                                PlayHitSound()
-                            end
-                            lastHealth = newHealth
-                        end)
-                    end
-
-                    if player.Character then
-                        task.spawn(ConnectHealth, player.Character)
-                    end
-                    player.CharacterAdded:Connect(function(char)
-                        task.spawn(ConnectHealth, char)
-                    end)
-                end
-
-                for _, player in pairs(Players:GetPlayers()) do
-                    TrackPlayer(player)
-                end
-                Players.PlayerAdded:Connect(TrackPlayer)
-                Players.PlayerRemoving:Connect(function(player)
                     if HealthConnections[player] then
                         HealthConnections[player]:Disconnect()
-                        HealthConnections[player] = nil
                     end
-                end)
 
+                    HealthConnections[player] = humanoid.HealthChanged:Connect(function(newHealth)
+                        if (tick() - LastFireTime) <= HIT_WINDOW and newHealth < lastHealth then
+                            if HitSoundState.Enabled then
+                                PlayHitSound()
+                            end
+                            if KillSoundState.Enabled and newHealth <= 0 then
+                                PlayKillSound()
+                            end
+                        end
+                        lastHealth = newHealth
+                    end)
+                end
+
+                if player.Character then
+                    task.spawn(ConnectHealth, player.Character)
+                end
+                player.CharacterAdded:Connect(function(char)
+                    task.spawn(ConnectHealth, char)
+                end)
+            end
+
+            for _, player in pairs(Players:GetPlayers()) do
+                TrackPlayer(player)
+            end
+            Players.PlayerAdded:Connect(TrackPlayer)
+            Players.PlayerRemoving:Connect(function(player)
+                if HealthConnections[player] then
+                    HealthConnections[player]:Disconnect()
+                    HealthConnections[player] = nil
+                end
+            end)
+
+            local HitSoundsSection = HitSoundsSubPage:Section({Name = "Hit Sounds", Side = 1}) do
                 HitSoundsSection:Toggle({
                     Name = "Enabled",
                     Flag = "HitSoundsEnabled",
@@ -730,8 +748,40 @@ do
                     Callback = function(v) HitSoundState.Sound = v end
                 })
 
-                HitSoundsSection:Button():Add("Preview Sound", function()
+                HitSoundsSection:Button():Add("Preview", function()
                     PlayHitSound()
+                end)
+            end
+
+            local KillSoundsSection = HitSoundsSubPage:Section({Name = "Kill Sounds", Side = 2}) do
+                KillSoundsSection:Toggle({
+                    Name = "Enabled",
+                    Flag = "KillSoundsEnabled",
+                    Default = false,
+                    Callback = function(v) KillSoundState.Enabled = v end
+                })
+
+                KillSoundsSection:Slider({
+                    Name = "Volume",
+                    Flag = "KillSoundsVolume",
+                    Min = 0,
+                    Max = 3,
+                    Default = 1,
+                    Decimals = 1,
+                    Callback = function(v) KillSoundState.Volume = v end
+                })
+
+                KillSoundsSection:Dropdown({
+                    Name = "Sound",
+                    Flag = "KillSoundsSound",
+                    Default = "minecraft orb.mp3",
+                    Multi = false,
+                    Items = {"rust.mp3", "minecraft orb.mp3"},
+                    Callback = function(v) KillSoundState.Sound = v end
+                })
+
+                KillSoundsSection:Button():Add("Preview", function()
+                    PlayKillSound()
                 end)
             end
         end
@@ -1623,25 +1673,144 @@ do
 
     do
         local FistAura = MiscPage:Section({Name = "Fist Aura", Side = 2}) do
-            local FistAuraWhitelist = {}
-            local FistAuraFriendCheck = false
+            local Players = game:GetService("Players")
+            local LocalPlayer = Players.LocalPlayer
+            local MeleeRemote = game:GetService("ReplicatedStorage"):WaitForChild("meleeEvent")
 
-            local Enabled = FistAura:Toggle({
+            local FAState = {
+                Enabled = false,
+                FriendCheck = false,
+                ShowRadius = false,
+                ShowTarget = false,
+                Radius = 10,
+                Teams = {},
+                InmateTypes = {},
+                Whitelist = {},
+            }
+
+            local function GetInmateStatusFA(character)
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if not humanoid then return "Regular" end
+                local dn = humanoid.DisplayName
+                if string.sub(dn, 1, 4) == "\xF0\x9F\x94\x97" then
+                    return "Arrestable"
+                elseif string.sub(dn, 1, 4) == "\xF0\x9F\x92\xA2" then
+                    return "Aggressive"
+                end
+                return "Regular"
+            end
+
+            local function ShouldTarget(player)
+                local teamName = player.Team and player.Team.Name or ""
+                if next(FAState.Teams) and not FAState.Teams[teamName] then return false end
+                if teamName == "Inmates" and next(FAState.InmateTypes) then
+                    local char = player.Character
+                    if char then
+                        local status = GetInmateStatusFA(char)
+                        if not FAState.InmateTypes[status] then return false end
+                    end
+                end
+                return true
+            end
+
+            local FA_CIRCLE_SEGMENTS = 40
+            local FARadiusLines = {}
+            for i = 1, FA_CIRCLE_SEGMENTS do
+                local line = Drawing.new("Line")
+                line.Thickness = 1
+                line.Visible = false
+                line.ZIndex = 997
+                line.Transparency = 0.6
+                line.Color = Color3.fromRGB(50, 150, 255)
+                FARadiusLines[i] = line
+            end
+
+            local FATargetLine = Drawing.new("Line")
+            FATargetLine.Thickness = 1.5
+            FATargetLine.Visible = false
+            FATargetLine.ZIndex = 997
+            FATargetLine.Color = Color3.fromRGB(50, 150, 255)
+
+            FistAura:Toggle({
                 Name = "Enabled",
                 Flag = "FistAuraEnabled",
-                Default = false
+                Default = false,
+                Callback = function(v)
+                    FAState.Enabled = v
+                    if not v then
+                        for _, line in FARadiusLines do line.Visible = false end
+                        FATargetLine.Visible = false
+                    end
+                end
+            })
+
+            FistAura:Slider({
+                Name = "Radius",
+                Flag = "FistAuraRadius",
+                Min = 5,
+                Max = 30,
+                Default = 10,
+                Suffix = " studs",
+                Decimals = 1,
+                Callback = function(v) FAState.Radius = v end
+            })
+
+            FistAura:Toggle({
+                Name = "Show Radius",
+                Flag = "FistAuraShowRadius",
+                Default = false,
+                Callback = function(v)
+                    FAState.ShowRadius = v
+                    if not v then
+                        for _, line in FARadiusLines do line.Visible = false end
+                    end
+                end
+            })
+
+            FistAura:Toggle({
+                Name = "Show Target",
+                Flag = "FistAuraShowTarget",
+                Default = false,
+                Callback = function(v)
+                    FAState.ShowTarget = v
+                    if not v then FATargetLine.Visible = false end
+                end
+            })
+
+            FistAura:Dropdown({
+                Name = "Teams",
+                Flag = "FistAuraTeams",
+                Multi = true,
+                Items = {"Guards", "Inmates", "Criminals"},
+                Callback = function(v)
+                    local set = {}
+                    for _, name in pairs(v) do set[name] = true end
+                    FAState.Teams = set
+                end
+            })
+
+            FistAura:Dropdown({
+                Name = "Inmate Types",
+                Flag = "FistAuraInmateTypes",
+                Multi = true,
+                Items = {"Regular", "Aggressive", "Arrestable"},
+                Callback = function(v)
+                    local set = {}
+                    for _, name in pairs(v) do set[name] = true end
+                    FAState.InmateTypes = set
+                end
             })
 
             FistAura:Toggle({
                 Name = "Friend Check",
                 Flag = "FistAuraFriendCheck",
                 Default = false,
-                Callback = function(v) FistAuraFriendCheck = v end
+                Callback = function(v) FAState.FriendCheck = v end
             })
 
             local faPlayerNames = {}
-            for _, p in pairs(game:GetService("Players"):GetPlayers()) do
-                if p ~= game.Players.LocalPlayer then
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer then
                     table.insert(faPlayerNames, p.Name)
                 end
             end
@@ -1654,43 +1823,116 @@ do
                 Callback = function(v)
                     local set = {}
                     for _, name in pairs(v) do set[name] = true end
-                    FistAuraWhitelist = set
+                    FAState.Whitelist = set
                 end
             })
 
-            game:GetService("Players").PlayerAdded:Connect(function(p)
-                FAWhitelistDropdown:Add(p.Name)
-            end)
-            game:GetService("Players").PlayerRemoving:Connect(function(p)
-                FAWhitelistDropdown:Remove(p.Name)
-            end) do
-                local Players = game:GetService("Players")
-                local LocalPlayer = Players.LocalPlayer
-                local MeleeRemote = game:GetService("ReplicatedStorage"):WaitForChild("meleeEvent")
+            Players.PlayerAdded:Connect(function(p) FAWhitelistDropdown:Add(p.Name) end)
+            Players.PlayerRemoving:Connect(function(p) FAWhitelistDropdown:Remove(p.Name) end)
 
-                NewRender(function()
-                    if Enabled:Get() ~= true then return end
-                    local character = LocalPlayer.Character
-                    if not character then return end
-                    local rootPart = character:FindFirstChild("HumanoidRootPart")
-                    if not rootPart then return end
+            NewRender(function()
+                if not FAState.Enabled then
+                    for _, line in FARadiusLines do line.Visible = false end
+                    FATargetLine.Visible = false
+                    return
+                end
 
-                    for _, player in pairs(Players:GetPlayers()) do
-                        if player == LocalPlayer then continue end
-                        if FistAuraWhitelist[player.Name] then continue end
-                        if FistAuraFriendCheck and FriendsCache[player.Name] then continue end
-                        local targetChar = player.Character
-                        if not targetChar then continue end
-                        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-                        if not targetRoot then continue end
-                        if (rootPart.Position - targetRoot.Position).Magnitude <= 10 then
-                            pcall(function()
-                                MeleeRemote:FireServer(player, 1, 1)
-                            end)
+                local character = LocalPlayer.Character
+                if not character then return end
+                local rootPart = character:FindFirstChild("HumanoidRootPart")
+                if not rootPart then return end
+
+                local Camera = workspace.CurrentCamera
+                local feetY = rootPart.Position.Y - 3
+                local center = Vector3.new(rootPart.Position.X, feetY, rootPart.Position.Z)
+
+                if FAState.ShowRadius then
+                    local angleStep = (2 * math.pi) / FA_CIRCLE_SEGMENTS
+                    local prevScreen = nil
+                    local prevOnScreen = false
+
+                    for i = 1, FA_CIRCLE_SEGMENTS do
+                        local angle = angleStep * i
+                        local worldPoint = center + Vector3.new(math.cos(angle) * FAState.Radius, 0, math.sin(angle) * FAState.Radius)
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(worldPoint)
+                        local curScreen = Vector2.new(screenPos.X, screenPos.Y)
+
+                        if i > 1 then
+                            if onScreen and prevOnScreen then
+                                FARadiusLines[i - 1].From = prevScreen
+                                FARadiusLines[i - 1].To = curScreen
+                                FARadiusLines[i - 1].Visible = true
+                            else
+                                FARadiusLines[i - 1].Visible = false
+                            end
+                        end
+
+                        if i == FA_CIRCLE_SEGMENTS then
+                            local firstWorld = center + Vector3.new(math.cos(angleStep) * FAState.Radius, 0, math.sin(angleStep) * FAState.Radius)
+                            local firstPos, firstOn = Camera:WorldToViewportPoint(firstWorld)
+                            if onScreen and firstOn then
+                                FARadiusLines[FA_CIRCLE_SEGMENTS].From = curScreen
+                                FARadiusLines[FA_CIRCLE_SEGMENTS].To = Vector2.new(firstPos.X, firstPos.Y)
+                                FARadiusLines[FA_CIRCLE_SEGMENTS].Visible = true
+                            else
+                                FARadiusLines[FA_CIRCLE_SEGMENTS].Visible = false
+                            end
+                        end
+
+                        prevScreen = curScreen
+                        prevOnScreen = onScreen
+                    end
+                else
+                    for _, line in FARadiusLines do line.Visible = false end
+                end
+
+                local closestPlayer = nil
+                local closestDist = FAState.Radius
+
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player == LocalPlayer then continue end
+                    if FAState.Whitelist[player.Name] then continue end
+                    if FAState.FriendCheck and FriendsCache[player.Name] then continue end
+                    if not ShouldTarget(player) then continue end
+                    local targetChar = player.Character
+                    if not targetChar then continue end
+                    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+                    if not targetRoot then continue end
+                    local dist = (rootPart.Position - targetRoot.Position).Magnitude
+                    if dist <= closestDist then
+                        closestDist = dist
+                        closestPlayer = player
+                    end
+                end
+
+                if closestPlayer then
+                    local targetRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if targetRoot then
+                        pcall(function()
+                            MeleeRemote:FireServer(closestPlayer, 1, 1)
+                        end)
+
+                        if FAState.ShowTarget then
+                            local targetFeetY = targetRoot.Position.Y - 3
+                            local fromWorld = Vector3.new(rootPart.Position.X, feetY, rootPart.Position.Z)
+                            local toWorld = Vector3.new(targetRoot.Position.X, targetFeetY, targetRoot.Position.Z)
+                            local fromPos, fromOn = Camera:WorldToViewportPoint(fromWorld)
+                            local toPos, toOn = Camera:WorldToViewportPoint(toWorld)
+                            if fromOn and toOn then
+                                FATargetLine.From = Vector2.new(fromPos.X, fromPos.Y)
+                                FATargetLine.To = Vector2.new(toPos.X, toPos.Y)
+                                FATargetLine.Visible = true
+                            else
+                                FATargetLine.Visible = false
+                            end
+                        else
+                            FATargetLine.Visible = false
                         end
                     end
-                end)
-            end
+                else
+                    FATargetLine.Visible = false
+                end
+            end)
         end
     end
 end

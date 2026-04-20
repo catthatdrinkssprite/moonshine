@@ -55,6 +55,9 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
   - configurable volume (0-3)
   - mute gun sound toggle — silences the default gun shoot sound
   - preview button to audition sounds without shooting
+- **kill sounds** — plays a custom sound when you kill another player
+  - independent sound selection and volume from hit sounds
+  - preview button
 
 </details>
 
@@ -89,7 +92,12 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
   - 3d radius circle rendered at feet level
   - 3d target line from your feet to the current target
   - friend check and player whitelist
-- **fist aura** — automatically punches nearby players within 10 studs, with friend check and whitelist
+- **fist aura** — automatically punches nearby players
+  - configurable radius (5-30 studs)
+  - team and inmate type filters (guards, inmates, criminals / regular, aggressive, arrestable)
+  - 3d radius circle rendered at feet level
+  - 3d target line from your feet to the current target
+  - friend check and player whitelist
 
 </details>
 
