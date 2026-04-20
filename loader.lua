@@ -11,8 +11,32 @@ if not isfolder("moonshine/images") then
     makefolder("moonshine/images")
 end
 
+if not isfolder("moonshine/txts") then
+    makefolder("moonshine/txts")
+end
+
+if not isfolder("moonshine/sounds") then
+    makefolder("moonshine/sounds")
+end
+
 if not isfile("moonshine/images/moon.png") then
     writefile("moonshine/images/moon.png", game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/main/moonshine/images/moon.png", true))
+end
+
+if not isfile("moonshine/images/W AZULA.png") then
+    writefile("moonshine/images/W AZULA.png", game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/main/moonshine/images/W%20AZULA.png", true))
+end
+
+if not isfile("moonshine/txts/W AZULA.txt") then
+    writefile("moonshine/txts/W AZULA.txt", game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/main/moonshine/txts/W%20AZULA.txt", true))
+end
+
+if not isfile("moonshine/sounds/rust.mp3") then
+    writefile("moonshine/sounds/rust.mp3", game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/main/moonshine/sounds/rust.mp3", true))
+end
+
+if not isfile("moonshine/sounds/minecraft orb.mp3") then
+    writefile("moonshine/sounds/minecraft orb.mp3", game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/main/moonshine/sounds/minecraft%20orb.mp3", true))
 end
 
 if success and type(result) == "function" then
