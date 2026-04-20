@@ -102,7 +102,9 @@ do
                     WallCheck = false,
                     Teams = {},
                     InmateTypes = {},
-                    DeathCheck = true
+                    DeathCheck = true,
+                    FriendCheck = false,
+                    Whitelist = {}
                 }
 
                 local Camera = workspace.CurrentCamera
@@ -193,7 +195,40 @@ do
                     Flag = "SilentAimDeathCheck",
                     Default = true,
                     Callback = function(v) SilentAimState.DeathCheck = v end
+                })
+
+                SilentAimSection:Toggle({
+                    Name = "Friend Check",
+                    Flag = "SilentAimFriendCheck",
+                    Default = false,
+                    Callback = function(v) SilentAimState.FriendCheck = v end
                 }) do
+                    local saPlayerNames = {}
+                    for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+                        if p ~= game.Players.LocalPlayer then
+                            table.insert(saPlayerNames, p.Name)
+                        end
+                    end
+
+                    local SAWhitelistDropdown = SilentAimSection:Dropdown({
+                        Name = "Whitelist",
+                        Flag = "SilentAimWhitelist",
+                        Multi = true,
+                        Items = saPlayerNames,
+                        Callback = function(v)
+                            local set = {}
+                            for _, name in pairs(v) do set[name] = true end
+                            SilentAimState.Whitelist = set
+                        end
+                    })
+
+                    game:GetService("Players").PlayerAdded:Connect(function(p)
+                        SAWhitelistDropdown:Add(p.Name)
+                    end)
+                    game:GetService("Players").PlayerRemoving:Connect(function(p)
+                        SAWhitelistDropdown:Remove(p.Name)
+                    end)
+                end do
                     local FoVCircle = Drawing.new("Circle")
                     FoVCircle.Thickness = 1
                     FoVCircle.NumSides = 100
@@ -280,6 +315,7 @@ do
 
                         for _, Player in next, GetPlayers(Players) do
                             if Player == LocalPlayer then continue end
+                            if SilentAimState.FriendCheck and SilentAimState.Whitelist[Player.Name] then continue end
 
                             local TeamName = Player.Team and Player.Team.Name or ""
                             if next(SilentAimState.Teams) and not SilentAimState.Teams[TeamName] then continue end
@@ -500,7 +536,9 @@ do
         do
             local ESPFilterState = {
                 Teams = {},
-                InmateTypes = {}
+                InmateTypes = {},
+                Whitelist = {},
+                WhitelistMode = "Hide ESP"
             }
 
             local function GetInmateStatusESP(Character)
@@ -515,7 +553,16 @@ do
                 return "Regular"
             end
 
+            local function IsWhitelisted(Player)
+                return ESPFilterState.Whitelist[Player.Name] == true
+            end
+
             local function ShouldShowPlayer(Player)
+                if IsWhitelisted(Player) then
+                    if ESPFilterState.WhitelistMode == "Hide ESP" then
+                        return false
+                    end
+                end
                 local TeamName = Player.Team and Player.Team.Name or ""
                 if next(ESPFilterState.Teams) and not ESPFilterState.Teams[TeamName] then
                     return false
@@ -567,6 +614,41 @@ do
                         for _, name in pairs(v) do set[name] = true end
                         ESPFilterState.InmateTypes = set
                     end
+                })
+
+                local playerNames = {}
+                for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+                    if p ~= game.Players.LocalPlayer then
+                        table.insert(playerNames, p.Name)
+                    end
+                end
+
+                local WhitelistDropdown = ESPFilters:Dropdown({
+                    Name = "Whitelist",
+                    Flag = "ESPWhitelist",
+                    Multi = true,
+                    Items = playerNames,
+                    Callback = function(v)
+                        local set = {}
+                        for _, name in pairs(v) do set[name] = true end
+                        ESPFilterState.Whitelist = set
+                    end
+                })
+
+                game:GetService("Players").PlayerAdded:Connect(function(p)
+                    WhitelistDropdown:Add(p.Name)
+                end)
+                game:GetService("Players").PlayerRemoving:Connect(function(p)
+                    WhitelistDropdown:Remove(p.Name)
+                end)
+
+                ESPFilters:Dropdown({
+                    Name = "Whitelist Mode",
+                    Flag = "ESPWhitelistMode",
+                    Multi = false,
+                    Default = "Hide ESP",
+                    Items = {"Hide ESP", "Show Green"},
+                    Callback = function(v) ESPFilterState.WhitelistMode = v end
                 })
             end
 
@@ -632,7 +714,9 @@ do
                                             Text.Visible = false
                                         end
                                     end
-                                    if TeamColor:Get() == true then
+                                    if IsWhitelisted(Player) then
+                                        Text.Color = Color3.fromRGB(0, 255, 0)
+                                    elseif TeamColor:Get() == true then
                                         Text.Color = Player.TeamColor.Color
                                     else
                                         Text.Color = Library.Theme.Accent
@@ -734,7 +818,9 @@ do
                                             BoxOutline.Visible = false
                                         end
                                     end
-                                    if TeamColor:Get() == true then
+                                    if IsWhitelisted(Player) then
+                                        Box.Color = Color3.fromRGB(0, 255, 0)
+                                    elseif TeamColor:Get() == true then
                                         Box.Color = Player.TeamColor.Color
                                     else
                                         Box.Color = Library.Theme.Accent
