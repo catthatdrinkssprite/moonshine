@@ -988,12 +988,88 @@ do
     end
 
     do
+        local AlwaysBackpack = MiscPage:Section({Name = "Always Backpack", Side = 1}) do
+            local Enabled = AlwaysBackpack:Toggle({
+                Name = "Enabled",
+                Flag = "AlwaysBackpackEnabled",
+                Default = false
+            }) do
+                local LP = game:GetService("Players").LocalPlayer
+                LP:GetAttributeChangedSignal("BackpackEnabled"):Connect(function()
+                    if Enabled:Get() == true and LP:GetAttribute("BackpackEnabled") == false then
+                        LP:SetAttribute("BackpackEnabled", true)
+                    end
+                end)
+            end
+        end
+    end
+
+    do
+        local AntiTase = MiscPage:Section({Name = "Anti Tase", Side = 2}) do
+            local Enabled = AntiTase:Toggle({
+                Name = "Enabled",
+                Flag = "AntiTaseEnabled",
+                Default = false
+            }) do
+                local PlayerTased = game:GetService("ReplicatedStorage"):WaitForChild("GunRemotes"):WaitForChild("PlayerTased")
+                local disabledConns = {}
+
+                game.RunService.RenderStepped:Connect(function()
+                    if Enabled:Get() == true then
+                        if #disabledConns == 0 then
+                            for _, conn in pairs(getconnections(PlayerTased.OnClientEvent)) do
+                                conn:Disable()
+                                table.insert(disabledConns, conn)
+                            end
+                        end
+                    else
+                        if #disabledConns > 0 then
+                            for _, conn in pairs(disabledConns) do
+                                conn:Enable()
+                            end
+                            disabledConns = {}
+                        end
+                    end
+                end)
+            end
+        end
+    end
+
+    do
         local ArrestAura = MiscPage:Section({Name = "Arrest Aura", Side = 1}) do
+            local ArrestAuraWhitelist = {}
+
             local Enabled = ArrestAura:Toggle({
                 Name = "Enabled",
                 Flag = "ArrestAuraEnabled",
                 Default = false
-            }) do
+            })
+
+            local aaPlayerNames = {}
+            for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+                if p ~= game.Players.LocalPlayer then
+                    table.insert(aaPlayerNames, p.Name)
+                end
+            end
+
+            local AAWhitelistDropdown = ArrestAura:Dropdown({
+                Name = "Whitelist",
+                Flag = "ArrestAuraWhitelist",
+                Multi = true,
+                Items = aaPlayerNames,
+                Callback = function(v)
+                    local set = {}
+                    for _, name in pairs(v) do set[name] = true end
+                    ArrestAuraWhitelist = set
+                end
+            })
+
+            game:GetService("Players").PlayerAdded:Connect(function(p)
+                AAWhitelistDropdown:Add(p.Name)
+            end)
+            game:GetService("Players").PlayerRemoving:Connect(function(p)
+                AAWhitelistDropdown:Remove(p.Name)
+            end) do
                 local Players = game:GetService("Players")
                 local LocalPlayer = Players.LocalPlayer
                 local ArrestRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ArrestPlayer")
@@ -1007,6 +1083,7 @@ do
 
                     for _, player in pairs(Players:GetPlayers()) do
                         if player == LocalPlayer then continue end
+                        if ArrestAuraWhitelist[player.Name] then continue end
                         local targetChar = player.Character
                         if not targetChar then continue end
                         local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
@@ -1024,11 +1101,39 @@ do
 
     do
         local FistAura = MiscPage:Section({Name = "Fist Aura", Side = 2}) do
+            local FistAuraWhitelist = {}
+
             local Enabled = FistAura:Toggle({
                 Name = "Enabled",
                 Flag = "FistAuraEnabled",
                 Default = false
-            }) do
+            })
+
+            local faPlayerNames = {}
+            for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+                if p ~= game.Players.LocalPlayer then
+                    table.insert(faPlayerNames, p.Name)
+                end
+            end
+
+            local FAWhitelistDropdown = FistAura:Dropdown({
+                Name = "Whitelist",
+                Flag = "FistAuraWhitelist",
+                Multi = true,
+                Items = faPlayerNames,
+                Callback = function(v)
+                    local set = {}
+                    for _, name in pairs(v) do set[name] = true end
+                    FistAuraWhitelist = set
+                end
+            })
+
+            game:GetService("Players").PlayerAdded:Connect(function(p)
+                FAWhitelistDropdown:Add(p.Name)
+            end)
+            game:GetService("Players").PlayerRemoving:Connect(function(p)
+                FAWhitelistDropdown:Remove(p.Name)
+            end) do
                 local Players = game:GetService("Players")
                 local LocalPlayer = Players.LocalPlayer
                 local MeleeRemote = game:GetService("ReplicatedStorage"):WaitForChild("meleeEvent")
@@ -1042,6 +1147,7 @@ do
 
                     for _, player in pairs(Players:GetPlayers()) do
                         if player == LocalPlayer then continue end
+                        if FistAuraWhitelist[player.Name] then continue end
                         local targetChar = player.Character
                         if not targetChar then continue end
                         local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
