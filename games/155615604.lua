@@ -574,6 +574,166 @@ do
     end
 
     do
+        local HitSoundsSubPage = CombatPage:SubPage({Name = "Hit Sounds", Columns = 2})
+
+        do
+            local HitSoundsSection = HitSoundsSubPage:Section({Name = "Hit Sounds", Side = 1}) do
+                local HitSoundState = {
+                    Enabled = false,
+                    Volume = 1,
+                    Sound = "rust.mp3",
+                    MuteGunSound = false,
+                }
+
+                local SoundFiles = {
+                    ["rust.mp3"] = getcustomasset("moonshine/sounds/rust.mp3"),
+                    ["minecraft orb.mp3"] = getcustomasset("moonshine/sounds/minecraft orb.mp3"),
+                }
+
+                local Players = game:GetService("Players")
+                local LocalPlayer = Players.LocalPlayer
+                local HealthConnections = {}
+                local LastFireTime = 0
+                local HIT_WINDOW = 0.35
+                local ToolActivatedConn = nil
+
+                local function PlayHitSound()
+                    local id = SoundFiles[HitSoundState.Sound]
+                    if not id then return end
+                    local sound = Instance.new("Sound")
+                    sound.SoundId = id
+                    sound.Volume = HitSoundState.Volume
+                    sound.PlayOnRemove = true
+                    sound.Parent = workspace
+                    sound:Destroy()
+                end
+
+                local function MuteShootSound(tool)
+                    local handle = tool:FindFirstChild("Handle")
+                    if not handle then return end
+                    local shootSound = handle:FindFirstChild("ShootSound")
+                    if not shootSound or not shootSound:IsA("Sound") then return end
+                    if HitSoundState.MuteGunSound then
+                        shootSound.Volume = 0
+                    end
+                end
+
+                local function HookTool(tool)
+                    if not tool:IsA("Tool") then return end
+                    tool.Activated:Connect(function()
+                        LastFireTime = tick()
+                        MuteShootSound(tool)
+                    end)
+                end
+
+                local function HookCharacter(character)
+                    for _, child in pairs(character:GetChildren()) do
+                        HookTool(child)
+                    end
+                    character.ChildAdded:Connect(HookTool)
+                end
+
+                if LocalPlayer.Character then HookCharacter(LocalPlayer.Character) end
+                LocalPlayer.CharacterAdded:Connect(HookCharacter)
+                LocalPlayer.Backpack.ChildAdded:Connect(HookTool)
+                for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+                    HookTool(tool)
+                end
+
+                local function TrackPlayer(player)
+                    if player == LocalPlayer then return end
+
+                    local function ConnectHealth(character)
+                        local humanoid = character:WaitForChild("Humanoid", 5)
+                        if not humanoid then return end
+                        local lastHealth = humanoid.Health
+
+                        if HealthConnections[player] then
+                            HealthConnections[player]:Disconnect()
+                        end
+
+                        HealthConnections[player] = humanoid.HealthChanged:Connect(function(newHealth)
+                            if HitSoundState.Enabled and newHealth < lastHealth and (tick() - LastFireTime) <= HIT_WINDOW then
+                                PlayHitSound()
+                            end
+                            lastHealth = newHealth
+                        end)
+                    end
+
+                    if player.Character then
+                        task.spawn(ConnectHealth, player.Character)
+                    end
+                    player.CharacterAdded:Connect(function(char)
+                        task.spawn(ConnectHealth, char)
+                    end)
+                end
+
+                for _, player in pairs(Players:GetPlayers()) do
+                    TrackPlayer(player)
+                end
+                Players.PlayerAdded:Connect(TrackPlayer)
+                Players.PlayerRemoving:Connect(function(player)
+                    if HealthConnections[player] then
+                        HealthConnections[player]:Disconnect()
+                        HealthConnections[player] = nil
+                    end
+                end)
+
+                HitSoundsSection:Toggle({
+                    Name = "Enabled",
+                    Flag = "HitSoundsEnabled",
+                    Default = false,
+                    Callback = function(v) HitSoundState.Enabled = v end
+                })
+
+                HitSoundsSection:Toggle({
+                    Name = "Mute Gun Sound",
+                    Flag = "HitSoundsMuteGun",
+                    Default = false,
+                    Callback = function(v)
+                        HitSoundState.MuteGunSound = v
+                        local char = LocalPlayer.Character
+                        if not v then
+                            local function RestoreVolume(container)
+                                for _, tool in pairs(container:GetChildren()) do
+                                    if tool:IsA("Tool") then
+                                        local handle = tool:FindFirstChild("Handle")
+                                        if handle then
+                                            local s = handle:FindFirstChild("ShootSound")
+                                            if s and s:IsA("Sound") then s.Volume = 0.5 end
+                                        end
+                                    end
+                                end
+                            end
+                            RestoreVolume(LocalPlayer.Backpack)
+                            if char then RestoreVolume(char) end
+                        end
+                    end
+                })
+
+                HitSoundsSection:Slider({
+                    Name = "Volume",
+                    Flag = "HitSoundsVolume",
+                    Min = 0,
+                    Max = 3,
+                    Default = 1,
+                    Decimals = 1,
+                    Callback = function(v) HitSoundState.Volume = v end
+                })
+
+                HitSoundsSection:Dropdown({
+                    Name = "Sound",
+                    Flag = "HitSoundsSound",
+                    Default = "rust.mp3",
+                    Multi = false,
+                    Items = {"rust.mp3", "minecraft orb.mp3"},
+                    Callback = function(v) HitSoundState.Sound = v end
+                })
+            end
+        end
+    end
+
+    do
         do
             local NoclipSection = MovementPage:Section({Name = "Noclip", Side = 1}) do
                 local NoclipEnabled = NoclipSection:Toggle({
