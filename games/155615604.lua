@@ -40,6 +40,8 @@ do
         end)
     end
 
+    local RemovedDoorsRef = nil
+
     local RunService = game:GetService("RunService")
     local RenderCache = {}
     local NotificationShown = {}
@@ -453,7 +455,19 @@ do
                         local TargetPart = FindFirstChild(PlayerCharacter, SilentAimState.Bone) or FindFirstChild(PlayerCharacter, "HumanoidRootPart")
                         if not TargetPart then return false end
 
+                        local DoorsFolder = RemovedDoorsRef
+                        local OldParent
+                        if DoorsFolder then
+                            OldParent = DoorsFolder.Parent
+                            DoorsFolder.Parent = workspace
+                        end
+
                         local ObscuringObjects = #GetPartsObscuringTarget(Camera, {TargetPart.Position}, {LocalPlayerCharacter, PlayerCharacter})
+
+                        if DoorsFolder and OldParent then
+                            DoorsFolder.Parent = OldParent
+                        end
+
                         return ObscuringObjects == 0
                     end
 
@@ -533,7 +547,16 @@ do
                         end
 
                         if SilentAimState.Triggerbot and ClosestTarget then
-                            mouse1click()
+                            local character = LocalPlayer.Character
+                            if character then
+                                local tool = character:FindFirstChildOfClass("Tool")
+                                if tool then
+                                    local handle = tool:FindFirstChild("Handle")
+                                    if handle and handle:FindFirstChild("ShootSound") then
+                                        mouse1click()
+                                    end
+                                end
+                            end
                         end
                     end)
 
@@ -1305,6 +1328,7 @@ do
                     if callback == true then
                         local Doors = workspace:FindFirstChild("Doors")
                         if not Doors then return end
+                        RemovedDoorsRef = Doors
                         local TemporaryDoorFolder = Instance.new("Folder", game.Lighting)
                         TemporaryDoorFolder.Name = "TemporaryDoorFolder"
                         Doors.Parent = TemporaryDoorFolder
@@ -1314,6 +1338,7 @@ do
                         local Doors = TemporaryDoorFolder:FindFirstChild("Doors")
                         if Doors then Doors.Parent = workspace end
                         TemporaryDoorFolder:Destroy()
+                        RemovedDoorsRef = nil
                     end
                 end
             })
