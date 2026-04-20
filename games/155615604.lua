@@ -18,6 +18,28 @@ do
     local MiscPage = Window:Page({Name = "Misc", Columns = 2})
     local SettingsPage = Library:CreateSettingsPage(Window, Watermark, KeybindList)
 
+    local FriendsCache = {}
+    do
+        local LP = game:GetService("Players").LocalPlayer
+        for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+            if p ~= LP then
+                task.spawn(function()
+                    local ok, result = pcall(LP.IsFriendsWith, LP, p.UserId)
+                    if ok then FriendsCache[p.Name] = result end
+                end)
+            end
+        end
+        game:GetService("Players").PlayerAdded:Connect(function(p)
+            task.spawn(function()
+                local ok, result = pcall(LP.IsFriendsWith, LP, p.UserId)
+                if ok then FriendsCache[p.Name] = result end
+            end)
+        end)
+        game:GetService("Players").PlayerRemoving:Connect(function(p)
+            FriendsCache[p.Name] = nil
+        end)
+    end
+
     do
         local GunModsSubPage = CombatPage:SubPage({Name = "Gun Mods", Columns = 2})
 
@@ -315,7 +337,8 @@ do
 
                         for _, Player in next, GetPlayers(Players) do
                             if Player == LocalPlayer then continue end
-                            if SilentAimState.FriendCheck and SilentAimState.Whitelist[Player.Name] then continue end
+                            if SilentAimState.Whitelist[Player.Name] then continue end
+                            if SilentAimState.FriendCheck and FriendsCache[Player.Name] then continue end
 
                             local TeamName = Player.Team and Player.Team.Name or ""
                             if next(SilentAimState.Teams) and not SilentAimState.Teams[TeamName] then continue end
@@ -538,6 +561,7 @@ do
                 Teams = {},
                 InmateTypes = {},
                 Whitelist = {},
+                FriendCheck = false,
                 WhitelistMode = "Hide ESP"
             }
 
@@ -554,7 +578,9 @@ do
             end
 
             local function IsWhitelisted(Player)
-                return ESPFilterState.Whitelist[Player.Name] == true
+                if ESPFilterState.Whitelist[Player.Name] then return true end
+                if ESPFilterState.FriendCheck and FriendsCache[Player.Name] then return true end
+                return false
             end
 
             local function ShouldShowPlayer(Player)
@@ -614,6 +640,13 @@ do
                         for _, name in pairs(v) do set[name] = true end
                         ESPFilterState.InmateTypes = set
                     end
+                })
+
+                ESPFilters:Toggle({
+                    Name = "Friend Check",
+                    Flag = "ESPFriendCheck",
+                    Default = false,
+                    Callback = function(v) ESPFilterState.FriendCheck = v end
                 })
 
                 local playerNames = {}
@@ -1095,7 +1128,8 @@ do
 
                     for _, player in pairs(Players:GetPlayers()) do
                         if player == LocalPlayer then continue end
-                        if ArrestAuraFriendCheck and ArrestAuraWhitelist[player.Name] then continue end
+                        if ArrestAuraWhitelist[player.Name] then continue end
+                        if ArrestAuraFriendCheck and FriendsCache[player.Name] then continue end
                         local targetChar = player.Character
                         if not targetChar then continue end
                         local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
@@ -1167,7 +1201,8 @@ do
 
                     for _, player in pairs(Players:GetPlayers()) do
                         if player == LocalPlayer then continue end
-                        if FistAuraFriendCheck and FistAuraWhitelist[player.Name] then continue end
+                        if FistAuraWhitelist[player.Name] then continue end
+                        if FistAuraFriendCheck and FriendsCache[player.Name] then continue end
                         local targetChar = player.Character
                         if not targetChar then continue end
                         local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
