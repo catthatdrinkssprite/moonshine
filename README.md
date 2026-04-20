@@ -39,6 +39,7 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 <summary>aimbot</summary>
 
 - **silent aim** — hooks raycast to redirect bullets to the closest target
+  - **triggerbot** — automatically fires when a valid target is within the fov circle
   - fov circle and tracer with configurable colors
   - configurable radius, bone selection (head / humanoidrootpart)
   - wall check, death check
@@ -98,6 +99,7 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
   - 3d radius circle rendered at feet level
   - 3d target line from your feet to the current target
   - friend check and player whitelist
+- **anti riot shield** — removes riot shield parts from all players' characters
 
 </details>
 

@@ -219,6 +219,7 @@ do
             local SilentAimSection = AimbotSubPage:Section({Name = "Silent Aim", Side = 1}) do
                 local SilentAimState = {
                     Enabled = false,
+                    Triggerbot = false,
                     FoVCircle = false,
                     FoVCircleColor = Library.Theme.Accent,
                     Tracer = false,
@@ -249,6 +250,17 @@ do
                     Flag = "SilentAimEnabled",
                     Default = SilentAimState.Enabled,
                     Callback = function(v) SilentAimState.Enabled = v end
+                })
+
+                SilentAimSection:Toggle({
+                    Name = "Triggerbot",
+                    ToolTip = {
+                        Name = "Triggerbot",
+                        Description = "Automatically fires when a valid target is within the FoV circle"
+                    },
+                    Flag = "SilentAimTriggerbot",
+                    Default = SilentAimState.Triggerbot,
+                    Callback = function(v) SilentAimState.Triggerbot = v end
                 })
 
                 SilentAimSection:Toggle({
@@ -500,10 +512,11 @@ do
                             FoVCircle.Visible = false
                         end
 
+                        local ClosestTarget = SilentAimState.Enabled and getClosestPlayer() or nil
+
                         if SilentAimState.Enabled and SilentAimState.Tracer then
-                            local Target = getClosestPlayer()
-                            if Target then
-                                local ScreenPos, OnScreen = WorldToViewportPoint(Camera, Target.Position)
+                            if ClosestTarget then
+                                local ScreenPos, OnScreen = WorldToViewportPoint(Camera, ClosestTarget.Position)
                                 if OnScreen then
                                     Tracer.From = getMousePosition()
                                     Tracer.To = Vector2.new(ScreenPos.X, ScreenPos.Y)
@@ -517,6 +530,10 @@ do
                             end
                         else
                             Tracer.Visible = false
+                        end
+
+                        if SilentAimState.Triggerbot and ClosestTarget then
+                            mouse1click()
                         end
                     end)
 
@@ -1933,6 +1950,32 @@ do
                     FATargetLine.Visible = false
                 end
             end)
+        end
+    end
+
+    do
+        local AntiRiotShield = MiscPage:Section({Name = "Anti Riot Shield", Side = 1}) do
+            local Enabled = AntiRiotShield:Toggle({
+                Name = "Enabled",
+                ToolTip = {
+                    Name = "Anti Riot Shield",
+                    Description = "Removes RiotShieldPart from all players' characters"
+                },
+                Flag = "AntiRiotShieldEnabled",
+                Default = false
+            }) do
+                NewRender(function()
+                    if Enabled:Get() ~= true then return end
+                    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+                        local character = player.Character
+                        if not character then continue end
+                        local shield = character:FindFirstChild("RiotShieldPart")
+                        if shield then
+                            shield:Destroy()
+                        end
+                    end
+                end)
+            end
         end
     end
 end
