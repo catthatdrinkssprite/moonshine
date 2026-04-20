@@ -5074,34 +5074,44 @@ local Library do
 
         Library:Thread(function()
             for Index, Value in Items do 
-                if Value.Instance:IsA("Frame") then
-                    Value:Tween(nil, {BackgroundTransparency = 0})
-                elseif Value.Instance:IsA("TextLabel") and Index ~= "Description" then 
-                    Value:Tween(nil, {TextTransparency = 0})
-                elseif Value.Instance:IsA("TextLabel") and Index == "Description" then 
-                    Value:Tween(nil, {TextTransparency = 0.4})
-                elseif Value.Instance:IsA("UIStroke") then
-                    Value:Tween(nil, {Transparency = 0})
+                if Value and Value.Instance then
+                    if Value.Instance:IsA("Frame") then
+                        Value:Tween(nil, {BackgroundTransparency = 0})
+                    elseif Value.Instance:IsA("TextLabel") and Index ~= "Description" then 
+                        Value:Tween(nil, {TextTransparency = 0})
+                    elseif Value.Instance:IsA("TextLabel") and Index == "Description" then 
+                        Value:Tween(nil, {TextTransparency = 0.4})
+                    elseif Value.Instance:IsA("UIStroke") then
+                        Value:Tween(nil, {Transparency = 0})
+                    end
                 end
             end
 
-            Items["Notification"]:Tween(nil, {Size = UDim2New(0, Size.X, 0, 0)})
-            Items["Liner"]:Tween(TweenInfo.new(Duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New(0, 0, 0, 1)})
+            if Items["Notification"] and Items["Notification"].Instance then
+                Items["Notification"]:Tween(nil, {Size = UDim2New(0, Size.X, 0, 0)})
+            end
+            if Items["Liner"] and Items["Liner"].Instance then
+                Items["Liner"]:Tween(TweenInfo.new(Duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New(0, 0, 0, 1)})
+            end
             
             task.delay(Duration + 0.1, function()
                 for Index, Value in Items do 
-                    if Value.Instance:IsA("Frame") then
-                        Value:Tween(nil, {BackgroundTransparency = 1})
-                    elseif Value.Instance:IsA("TextLabel") then 
-                        Value:Tween(nil, {TextTransparency = 1})
-                    elseif Value.Instance:IsA("UIStroke") then
-                        Value:Tween(nil, {Transparency = 1})
+                    if Value and Value.Instance then
+                        if Value.Instance:IsA("Frame") then
+                            Value:Tween(nil, {BackgroundTransparency = 1})
+                        elseif Value.Instance:IsA("TextLabel") then 
+                            Value:Tween(nil, {TextTransparency = 1})
+                        elseif Value.Instance:IsA("UIStroke") then
+                            Value:Tween(nil, {Transparency = 1})
+                        end
                     end
                 end
 
-                Items["Notification"]:Tween(nil, {Size = UDim2New(0, 0, 0, 0)})
-                task.wait(0.5)
-                Items["Notification"]:Clean()
+                if Items["Notification"] and Items["Notification"].Instance then
+                    Items["Notification"]:Tween(nil, {Size = UDim2New(0, 0, 0, 0)})
+                    task.wait(0.5)
+                    Items["Notification"]:Clean()
+                end
             end)
         end)
     end

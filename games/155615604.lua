@@ -729,6 +729,10 @@ do
                     Items = {"rust.mp3", "minecraft orb.mp3"},
                     Callback = function(v) HitSoundState.Sound = v end
                 })
+
+                HitSoundsSection:Button():Add("Preview Sound", function()
+                    PlayHitSound()
+                end)
             end
         end
     end
