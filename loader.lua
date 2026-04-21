@@ -74,7 +74,6 @@ local success, result = pcall(function()
 end)
 
 if success and type(result) == "function" then
-    Library:Notification("Loading!", string.format("Found script for %s!", game.PlaceId), 5)
     result()
 else
     Library:Notification("Failed to load.", "Game may not be supported, Check the github for supported games!", 5)
