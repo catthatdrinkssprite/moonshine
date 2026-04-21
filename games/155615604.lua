@@ -774,49 +774,57 @@ do
                     local oldNamecall
                     oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(...)
                         local Method = getnamecallmethod()
+
+                        if Method ~= "FindPartOnRayWithIgnoreList" and Method ~= "FindPartOnRayWithWhitelist"
+                            and Method ~= "FindPartOnRay" and Method ~= "findPartOnRay" and Method ~= "Raycast" then
+                            return oldNamecall(...)
+                        end
+
                         local Arguments = {...}
                         local self = Arguments[1]
 
-                        if (SilentAimState.Enabled or RagebotForcedTarget) and self == workspace and not checkcaller() then
-                            local rbTarget = RagebotForcedTarget
-                            local rbOrigin = RagebotMuzzleOrigin
+                        if not ((SilentAimState.Enabled or RagebotForcedTarget) and self == workspace and not checkcaller()) then
+                            return oldNamecall(...)
+                        end
 
-                            if Method == "FindPartOnRayWithIgnoreList" then
-                                if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRayWithIgnoreList) then
-                                    local HitPart = rbTarget or getClosestPlayer()
-                                    if HitPart then
-                                        local Origin = rbOrigin or Arguments[2].Origin
-                                        Arguments[2] = Ray.new(Origin, getDirection(Origin, HitPart.Position))
-                                        return oldNamecall(unpack(Arguments))
-                                    end
+                        local rbTarget = RagebotForcedTarget
+                        local rbOrigin = RagebotMuzzleOrigin
+
+                        if Method == "FindPartOnRayWithIgnoreList" then
+                            if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRayWithIgnoreList) then
+                                local HitPart = rbTarget or getClosestPlayer()
+                                if HitPart then
+                                    local Origin = rbOrigin or Arguments[2].Origin
+                                    Arguments[2] = Ray.new(Origin, getDirection(Origin, HitPart.Position))
+                                    return oldNamecall(unpack(Arguments))
                                 end
-                            elseif Method == "FindPartOnRayWithWhitelist" then
-                                if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRayWithWhitelist) then
-                                    local HitPart = rbTarget or getClosestPlayer()
-                                    if HitPart then
-                                        local Origin = rbOrigin or Arguments[2].Origin
-                                        Arguments[2] = Ray.new(Origin, getDirection(Origin, HitPart.Position))
-                                        return oldNamecall(unpack(Arguments))
-                                    end
+                            end
+                        elseif Method == "FindPartOnRayWithWhitelist" then
+                            if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRayWithWhitelist) then
+                                local HitPart = rbTarget or getClosestPlayer()
+                                if HitPart then
+                                    local Origin = rbOrigin or Arguments[2].Origin
+                                    Arguments[2] = Ray.new(Origin, getDirection(Origin, HitPart.Position))
+                                    return oldNamecall(unpack(Arguments))
                                 end
-                            elseif Method == "FindPartOnRay" or Method == "findPartOnRay" then
-                                if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRay) then
-                                    local HitPart = rbTarget or getClosestPlayer()
-                                    if HitPart then
-                                        local Origin = rbOrigin or Arguments[2].Origin
-                                        Arguments[2] = Ray.new(Origin, getDirection(Origin, HitPart.Position))
-                                        return oldNamecall(unpack(Arguments))
-                                    end
+                            end
+                        elseif Method == "FindPartOnRay" or Method == "findPartOnRay" then
+                            if ValidateArguments(Arguments, ExpectedArguments.FindPartOnRay) then
+                                local HitPart = rbTarget or getClosestPlayer()
+                                if HitPart then
+                                    local Origin = rbOrigin or Arguments[2].Origin
+                                    Arguments[2] = Ray.new(Origin, getDirection(Origin, HitPart.Position))
+                                    return oldNamecall(unpack(Arguments))
                                 end
-                            elseif Method == "Raycast" then
-                                if ValidateArguments(Arguments, ExpectedArguments.Raycast) then
-                                    local HitPart = rbTarget or getClosestPlayer()
-                                    if HitPart then
-                                        local Origin = rbOrigin or Arguments[2]
-                                        Arguments[2] = Origin
-                                        Arguments[3] = getDirection(Origin, HitPart.Position)
-                                        return oldNamecall(unpack(Arguments))
-                                    end
+                            end
+                        elseif Method == "Raycast" then
+                            if ValidateArguments(Arguments, ExpectedArguments.Raycast) then
+                                local HitPart = rbTarget or getClosestPlayer()
+                                if HitPart then
+                                    local Origin = rbOrigin or Arguments[2]
+                                    Arguments[2] = Origin
+                                    Arguments[3] = getDirection(Origin, HitPart.Position)
+                                    return oldNamecall(unpack(Arguments))
                                 end
                             end
                         end
@@ -2293,8 +2301,13 @@ do
                 end
             })
 
-            SkySection:Colorpicker({
+            SkySection:Toggle({
                 Name = "Color Shift Bottom",
+                Flag = "LightColorShiftBottomToggle",
+                Default = false,
+                Callback = function() end
+            }):Colorpicker({
+                Name = "Bottom",
                 Flag = "LightColorShiftBottom",
                 Default = OriginalLighting.ColorShift_Bottom,
                 Alpha = 0,
