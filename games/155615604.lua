@@ -1932,27 +1932,89 @@ do
 
     do
         local AntiTase = MiscPage:Section({Name = "Anti Tase", Side = 2}) do
-            local Enabled = AntiTase:Toggle({
+            local ATState = {
+                Enabled = false,
+                Method = "New Method",
+            }
+
+            AntiTase:Toggle({
                 Name = "Enabled",
                 ToolTip = {
                     Name = "Anti Tase",
-                    Description = "Cancels the taser stun animation, restores movement, and re-equips whatever you were holding"
+                    Description = "Prevents or cancels the taser stun effect and re-equips your weapon"
                 },
                 Flag = "AntiTaseEnabled",
-                Default = false
+                Default = false,
+                Callback = function(v) ATState.Enabled = v end
+            })
+
+            AntiTase:Dropdown({
+                Name = "Method",
+                ToolTip = {
+                    Name = "Method",
+                    Description = "New Method blocks the tase event entirely. Old Method cancels the animation after it starts."
+                },
+                Flag = "AntiTaseMethod",
+                Default = "New Method",
+                Multi = false,
+                Items = {"New Method", "Old Method"},
+                Callback = function(v) ATState.Method = v end
             }) do
+                local PlayerTased = game:GetService("ReplicatedStorage"):WaitForChild("GunRemotes"):WaitForChild("PlayerTased")
+                local TaseHookConn = nil
 
                 local PreTaseSpeed = 16
                 local PreTaseJumpHeight = 5.5
                 local LastEquippedTool = nil
                 local WasTazedLastFrame = false
 
+                local function HookTaseEvent()
+                    if TaseHookConn then return end
+                    for _, conn in pairs(getconnections(PlayerTased.OnClientEvent)) do
+                        conn:Disable()
+                    end
+                    TaseHookConn = true
+                end
+
+                local function UnhookTaseEvent()
+                    if not TaseHookConn then return end
+                    for _, conn in pairs(getconnections(PlayerTased.OnClientEvent)) do
+                        conn:Enable()
+                    end
+                    TaseHookConn = nil
+                end
+
                 NewRender(function()
-                    if Enabled:Get() ~= true then return end
                     local character = game.Players.LocalPlayer.Character
                     if not character then return end
                     local humanoid = character:FindFirstChildOfClass("Humanoid")
                     if not humanoid then return end
+
+                    local currentTool = character:FindFirstChildOfClass("Tool")
+                    if currentTool then
+                        LastEquippedTool = currentTool
+                    end
+                    if humanoid.WalkSpeed > 0 then
+                        PreTaseSpeed = humanoid.WalkSpeed
+                    end
+                    if humanoid.JumpHeight > 0 then
+                        PreTaseJumpHeight = humanoid.JumpHeight
+                    end
+
+                    if not ATState.Enabled then
+                        UnhookTaseEvent()
+                        WasTazedLastFrame = false
+                        return
+                    end
+
+                    if ATState.Method == "New Method" then
+                        HookTaseEvent()
+                        WasTazedLastFrame = false
+                        return
+                    end
+
+                    UnhookTaseEvent()
+
                     local animator = humanoid:FindFirstChildOfClass("Animator")
                     if not animator then return end
 
@@ -1977,19 +2039,101 @@ do
                         WasTazedLastFrame = true
                     else
                         WasTazedLastFrame = false
-                        if humanoid.WalkSpeed > 0 then
-                            PreTaseSpeed = humanoid.WalkSpeed
-                        end
-                        if humanoid.JumpHeight > 0 then
-                            PreTaseJumpHeight = humanoid.JumpHeight
-                        end
-                        local currentTool = character:FindFirstChildOfClass("Tool")
-                        if currentTool then
-                            LastEquippedTool = currentTool
-                        end
                     end
                 end)
+
+                RegisterCleanup(function()
+                    UnhookTaseEvent()
+                end)
             end
+        end
+    end
+
+    do
+        local PickupAura = MiscPage:Section({Name = "Pickup Aura", Side = 2}) do
+            local PAState = {
+                Enabled = false,
+                Items = {},
+                Radius = 10,
+                Cooldown = 0.5,
+            }
+
+            local PALastTick = 0
+            local GiverRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("GiverPressed")
+
+            local PICKUP_ITEMS = {
+                ["M9"] = true,
+                ["Hammer"] = true,
+                ["Crude Knife"] = true,
+                ["Key card"] = true,
+            }
+
+            PickupAura:Toggle({
+                Name = "Enabled",
+                ToolTip = {
+                    Name = "Pickup Aura",
+                    Description = "Automatically picks up selected items within range using the GiverPressed remote"
+                },
+                Flag = "PickupAuraEnabled",
+                Default = false,
+                Callback = function(v) PAState.Enabled = v end
+            })
+
+            PickupAura:Dropdown({
+                Name = "Items",
+                Flag = "PickupAuraItems",
+                Multi = true,
+                Items = {"M9", "Hammer", "Crude Knife", "Key card"},
+                Callback = function(v)
+                    local set = {}
+                    for _, name in pairs(v) do set[name] = true end
+                    PAState.Items = set
+                end
+            })
+
+            PickupAura:Slider({
+                Name = "Radius",
+                Flag = "PickupAuraRadius",
+                Min = 5,
+                Max = 30,
+                Default = 10,
+                Suffix = " studs",
+                Decimals = 1,
+                Callback = function(v) PAState.Radius = v end
+            })
+
+            NewRender(function()
+                if not PAState.Enabled then return end
+                if not next(PAState.Items) then return end
+
+                local now = tick()
+                if (now - PALastTick) < PAState.Cooldown then return end
+
+                local character = game.Players.LocalPlayer.Character
+                if not character then return end
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                local myPos = hrp.Position
+                local radius = PAState.Radius
+
+                for _, obj in pairs(workspace:GetChildren()) do
+                    if not PAState.Items[obj.Name] then continue end
+
+                    local part
+                    if obj:IsA("BasePart") then
+                        part = obj
+                    elseif obj:IsA("Model") then
+                        part = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                    end
+
+                    if part and (myPos - part.Position).Magnitude <= radius then
+                        PALastTick = now
+                        pcall(GiverRemote.FireServer, GiverRemote, obj)
+                        return
+                    end
+                end
+            end)
         end
     end
 
