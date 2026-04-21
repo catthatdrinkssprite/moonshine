@@ -2304,7 +2304,7 @@ do
                 ToolTip = { Name = "Custom Skybox", Description = "Pick a preset, or select 'Custom' and enter your own asset IDs below" },
                 Flag = "LightSkyboxChoice",
                 Default = "Default",
-                Options = SkyboxNames,
+                Items = SkyboxNames,
                 Callback = function(v)
                     LightState.SkyboxChoice = v
                     if v == "Default" then
