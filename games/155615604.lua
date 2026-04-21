@@ -788,8 +788,21 @@ do
 
         do
             local SoundFiles = {
-                ["rust.mp3"] = getcustomasset("moonshine/sounds/rust.mp3"),
+                ["12.mp3"] = getcustomasset("moonshine/sounds/12.mp3"),
+                ["agpa2.mp3"] = getcustomasset("moonshine/sounds/agpa2.mp3"),
+                ["basshit.mp3"] = getcustomasset("moonshine/sounds/basshit.mp3"),
+                ["bell.mp3"] = getcustomasset("moonshine/sounds/bell.mp3"),
+                ["blizzard.mp3"] = getcustomasset("moonshine/sounds/blizzard.mp3"),
+                ["bubble.mp3"] = getcustomasset("moonshine/sounds/bubble.mp3"),
+                ["chockpro.mp3"] = getcustomasset("moonshine/sounds/chockpro.mp3"),
+                ["cod.mp3"] = getcustomasset("moonshine/sounds/cod.mp3"),
+                ["copperbell.mp3"] = getcustomasset("moonshine/sounds/copperbell.mp3"),
+                ["crowbar.mp3"] = getcustomasset("moonshine/sounds/crowbar.mp3"),
+                ["knob.mp3"] = getcustomasset("moonshine/sounds/knob.mp3"),
                 ["minecraft orb.mp3"] = getcustomasset("moonshine/sounds/minecraft orb.mp3"),
+                ["neverlose.mp3"] = getcustomasset("moonshine/sounds/neverlose.mp3"),
+                ["rust.mp3"] = getcustomasset("moonshine/sounds/rust.mp3"),
+                ["skeet.mp3"] = getcustomasset("moonshine/sounds/skeet.mp3"),
             }
 
             local Players = game:GetService("Players")
@@ -981,7 +994,7 @@ do
                     Flag = "HitSoundsSound",
                     Default = "rust.mp3",
                     Multi = false,
-                    Items = {"rust.mp3", "minecraft orb.mp3"},
+                    Items = {"12.mp3", "agpa2.mp3", "basshit.mp3", "bell.mp3", "blizzard.mp3", "bubble.mp3", "chockpro.mp3", "cod.mp3", "copperbell.mp3", "crowbar.mp3", "knob.mp3", "minecraft orb.mp3", "neverlose.mp3", "rust.mp3", "skeet.mp3"},
                     Callback = function(v) HitSoundState.Sound = v end
                 })
 
@@ -1017,7 +1030,7 @@ do
                     Flag = "KillSoundsSound",
                     Default = "minecraft orb.mp3",
                     Multi = false,
-                    Items = {"rust.mp3", "minecraft orb.mp3"},
+                    Items = {"12.mp3", "agpa2.mp3", "basshit.mp3", "bell.mp3", "blizzard.mp3", "bubble.mp3", "chockpro.mp3", "cod.mp3", "copperbell.mp3", "crowbar.mp3", "knob.mp3", "minecraft orb.mp3", "neverlose.mp3", "rust.mp3", "skeet.mp3"},
                     Callback = function(v) KillSoundState.Sound = v end
                 })
 
@@ -1897,7 +1910,7 @@ do
                 Name = "Enabled",
                 ToolTip = {
                     Name = "Anti Tase",
-                    Description = "Cancels the taser stun animation and restores your movement instantly"
+                    Description = "Cancels the taser stun animation, restores movement, and re-equips whatever you were holding"
                 },
                 Flag = "AntiTaseEnabled",
                 Default = false
@@ -1905,6 +1918,8 @@ do
 
                 local PreTaseSpeed = 16
                 local PreTaseJumpHeight = 5.5
+                local LastEquippedTool = nil
+                local WasTazedLastFrame = false
 
                 NewRender(function()
                     if Enabled:Get() ~= true then return end
@@ -1927,12 +1942,24 @@ do
                     if tazed then
                         humanoid.WalkSpeed = PreTaseSpeed
                         humanoid.JumpHeight = PreTaseJumpHeight
+                        if not WasTazedLastFrame and LastEquippedTool then
+                            local tool = LastEquippedTool
+                            if tool.Parent == game.Players.LocalPlayer.Backpack then
+                                humanoid:EquipTool(tool)
+                            end
+                        end
+                        WasTazedLastFrame = true
                     else
+                        WasTazedLastFrame = false
                         if humanoid.WalkSpeed > 0 then
                             PreTaseSpeed = humanoid.WalkSpeed
                         end
                         if humanoid.JumpHeight > 0 then
                             PreTaseJumpHeight = humanoid.JumpHeight
+                        end
+                        local currentTool = character:FindFirstChildOfClass("Tool")
+                        if currentTool then
+                            LastEquippedTool = currentTool
                         end
                     end
                 end)
@@ -2513,9 +2540,44 @@ do
         local RBPhase = "fight"
         local RBReloadQueue = {}
         local RBReloadIndex = 0
+        local RBLastReloadTick = 0
+
+        local VIM = cloneref(game:GetService("VirtualInputManager"))
+
+        local function RBGetAmmoLabel()
+            local pg = LocalPlayer:FindFirstChild("PlayerGui")
+            if not pg then return nil end
+            local home = pg:FindFirstChild("Home")
+            if not home then return nil end
+            local hud = home:FindFirstChild("hud")
+            if not hud then return nil end
+            local brf = hud:FindFirstChild("BottomRightFrame")
+            if not brf then return nil end
+            local gf = brf:FindFirstChild("GunFrame")
+            if not gf then return nil end
+            return gf:FindFirstChild("BulletsLabel")
+        end
+
+        local function RBReadAmmo()
+            local label = RBGetAmmoLabel()
+            if not label then return nil, nil end
+            local text = label.Text
+            local current, total = text:match("^(%d+)/(%d+)")
+            return tonumber(current), tonumber(total)
+        end
+
+        local function RBSendReloadKey()
+            VIM:SendKeyEvent(true, Enum.KeyCode.R, false, game)
+            task.delay(0.05, function()
+                VIM:SendKeyEvent(false, Enum.KeyCode.R, false, game)
+            end)
+        end
 
         local function RBIsGun(tool)
-            return tool:IsA("Tool") and tool:GetAttribute("ToolType") == "Gun"
+            if not tool:IsA("Tool") then return false end
+            local handle = tool:FindFirstChild("Handle")
+            if not handle then return false end
+            return handle:FindFirstChild("ShootSound") ~= nil
         end
 
         local function RBGetAllGuns()
@@ -2539,23 +2601,6 @@ do
                 if RBIsGun(tool) then return tool end
             end
             return nil
-        end
-
-        local function RBFindGunWithAmmo(exclude)
-            local guns = RBGetAllGuns()
-            for _, gun in pairs(guns) do
-                if gun ~= exclude and (gun:GetAttribute("CurrentAmmo") or 0) > 0 then
-                    return gun
-                end
-            end
-            return nil
-        end
-
-        local function RBAllGunsEmpty()
-            for _, gun in pairs(RBGetAllGuns()) do
-                if (gun:GetAttribute("CurrentAmmo") or 0) > 0 then return false end
-            end
-            return true
         end
 
         local function RBGetMuzzlePosition(tool)
@@ -2777,6 +2822,7 @@ do
             end
 
             local now = tick()
+            local currentAmmo, totalAmmo = RBReadAmmo()
 
             if RBPhase == "reload" then
                 RagebotForcedTarget = nil
@@ -2797,59 +2843,52 @@ do
 
                 local equipped = RBGetEquippedGun()
                 if equipped ~= gun then
-                    if (now - RBSwitchCooldown) > 0.15 then
+                    if (now - RBSwitchCooldown) > 0.3 then
                         humanoid:EquipTool(gun)
                         RBSwitchCooldown = now
                     end
                     return
                 end
 
-                if gun:GetAttribute("IsReloading") then
-                    return
-                end
-
-                local current = gun:GetAttribute("CurrentAmmo") or 0
-                local stored = gun:GetAttribute("StoredAmmo") or 0
-
-                if current > 0 then
+                if currentAmmo and currentAmmo > 0 then
                     RBReloadIndex = RBReloadIndex + 1
                     return
                 end
 
-                if stored > 0 then
-                    keypress(0x52)
-                    task.defer(keyrelease, 0x52)
+                if (now - RBLastReloadTick) > 2 then
+                    RBSendReloadKey()
+                    RBLastReloadTick = now
                     return
                 end
 
-                RBReloadIndex = RBReloadIndex + 1
                 return
             end
 
             local equippedGun = RBGetEquippedGun()
+            local magEmpty = not currentAmmo or currentAmmo == 0
 
-            if not equippedGun or (equippedGun:GetAttribute("CurrentAmmo") or 0) <= 0 then
-                local next = RBFindGunWithAmmo(equippedGun)
-                if next then
-                    if (now - RBSwitchCooldown) > 0.15 then
-                        humanoid:EquipTool(next)
-                        RBSwitchCooldown = now
-                    end
-                    RagebotForcedTarget = nil
-                    RagebotMuzzleOrigin = nil
-                    return
-                end
-
-                if RBState.AutoReload and RBAllGunsEmpty() then
-                    RBReloadQueue = {}
-                    for _, gun in pairs(RBGetAllGuns()) do
-                        if (gun:GetAttribute("StoredAmmo") or 0) > 0 then
-                            table.insert(RBReloadQueue, gun)
+            if not equippedGun or magEmpty then
+                if equippedGun and magEmpty and RBState.AutoSwitch then
+                    local allGuns = RBGetAllGuns()
+                    for _, gun in pairs(allGuns) do
+                        if gun ~= equippedGun and gun.Parent == LocalPlayer.Backpack then
+                            if (now - RBSwitchCooldown) > 0.3 then
+                                humanoid:EquipTool(gun)
+                                RBSwitchCooldown = now
+                            end
+                            RagebotForcedTarget = nil
+                            RagebotMuzzleOrigin = nil
+                            return
                         end
                     end
+                end
+
+                if RBState.AutoReload and magEmpty then
+                    RBReloadQueue = RBGetAllGuns()
                     if #RBReloadQueue > 0 then
                         RBPhase = "reload"
                         RBReloadIndex = 1
+                        RBLastReloadTick = 0
                     end
                 end
 
@@ -2858,14 +2897,7 @@ do
                 return
             end
 
-            if equippedGun:GetAttribute("IsReloading") then
-                RagebotForcedTarget = nil
-                RagebotMuzzleOrigin = nil
-                return
-            end
-
-            local fireRate = equippedGun:GetAttribute("FireRate") or 0.1
-            if (now - RBLastFireTick) < fireRate then return end
+            if (now - RBLastFireTick) < 0.08 then return end
 
             local muzzlePos = RBGetMuzzlePosition(equippedGun)
             if not muzzlePos then return end

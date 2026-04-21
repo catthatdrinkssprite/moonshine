@@ -21,8 +21,21 @@ local Assets = {
     ["moonshine/images/moon.png"]           = "moonshine/images/moon.png",
     ["moonshine/images/W AZULA.png"]        = "moonshine/images/W%20AZULA.png",
     ["moonshine/txts/W AZULA.txt"]          = "moonshine/txts/W%20AZULA.txt",
-    ["moonshine/sounds/rust.mp3"]           = "moonshine/sounds/rust.mp3",
+    ["moonshine/sounds/12.mp3"]             = "moonshine/sounds/12.mp3",
+    ["moonshine/sounds/agpa2.mp3"]          = "moonshine/sounds/agpa2.mp3",
+    ["moonshine/sounds/basshit.mp3"]        = "moonshine/sounds/basshit.mp3",
+    ["moonshine/sounds/bell.mp3"]           = "moonshine/sounds/bell.mp3",
+    ["moonshine/sounds/blizzard.mp3"]       = "moonshine/sounds/blizzard.mp3",
+    ["moonshine/sounds/bubble.mp3"]         = "moonshine/sounds/bubble.mp3",
+    ["moonshine/sounds/chockpro.mp3"]       = "moonshine/sounds/chockpro.mp3",
+    ["moonshine/sounds/cod.mp3"]            = "moonshine/sounds/cod.mp3",
+    ["moonshine/sounds/copperbell.mp3"]     = "moonshine/sounds/copperbell.mp3",
+    ["moonshine/sounds/crowbar.mp3"]        = "moonshine/sounds/crowbar.mp3",
+    ["moonshine/sounds/knob.mp3"]           = "moonshine/sounds/knob.mp3",
     ["moonshine/sounds/minecraft orb.mp3"]  = "moonshine/sounds/minecraft%20orb.mp3",
+    ["moonshine/sounds/neverlose.mp3"]      = "moonshine/sounds/neverlose.mp3",
+    ["moonshine/sounds/rust.mp3"]           = "moonshine/sounds/rust.mp3",
+    ["moonshine/sounds/skeet.mp3"]          = "moonshine/sounds/skeet.mp3",
 }
 
 for _, folder in Folders do
