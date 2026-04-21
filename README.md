@@ -21,7 +21,7 @@ a fully opensource script for roblox
 <summary>📦 script</summary>
 
 ```lua
-loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/main/loader.lua", true))()
+loadstring(game:HttpGet("https://github.com/catthatdrinkssprite/moonshine/raw/main/loader.lua", true))()
 ```
 
 </details>
@@ -131,7 +131,7 @@ loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/ma
 
 ## 🛡️ license
 
-this project is licensed under the [gnu general public license v3.0 or later](https://github.com/CatThatDrinksSprite/moonshine/blob/main/LICENSE).
+this project is licensed under the [gnu general public license v3.0 or later](https://github.com/catthatdrinkssprite/moonshine/blob/main/LICENSE).
 
 ## 📃 credits
 

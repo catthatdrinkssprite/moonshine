@@ -8,7 +8,7 @@ if QuartzOk and Quartz then
     Tester:PatchEnvironment()
 end
 
-local BASE_URL = "https://github.com/CatThatDrinksSprite/moonshine/raw/main"
+local BASE_URL = "https://github.com/catthatdrinkssprite/moonshine/raw/main"
 
 local Folders = {
     "moonshine",

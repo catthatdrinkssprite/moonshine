@@ -1,4 +1,4 @@
-local Library = loadstring(game:HttpGet("https://github.com/CatThatDrinksSprite/moonshine/raw/main/libraries/scoot/Library.lua"))()
+local Library = loadstring(game:HttpGet("https://github.com/catthatdrinkssprite/moonshine/raw/main/libraries/scoot/Library.lua"))()
 
 local Window = Library:Window({
     Logo = getcustomasset("moonshine/images/moon.png"),
