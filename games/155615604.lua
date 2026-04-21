@@ -313,6 +313,27 @@ do
                 local FindFirstChild = game.FindFirstChild
                 local GetMouseLocation = UserInputService.GetMouseLocation
 
+                local R6_BONES = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "HumanoidRootPart"}
+                local R6_BONE_ITEMS = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "HumanoidRootPart", "Random", "Nearest Visible"}
+
+                local function ResolveBone(rawBone, character, localCharacter)
+                    if rawBone == "Random" then
+                        return R6_BONES[math.random(1, #R6_BONES)]
+                    end
+                    if rawBone == "Nearest Visible" then
+                        for _, name in ipairs(R6_BONES) do
+                            local part = character:FindFirstChild(name)
+                            if part then
+                                if #GetPartsObscuringTarget(Camera, {part.Position}, {localCharacter, character}) == 0 then
+                                    return name
+                                end
+                            end
+                        end
+                        return "HumanoidRootPart"
+                    end
+                    return rawBone
+                end
+
                 SilentAimSection:Toggle({
                     Name = "Enabled",
                     ToolTip = {
@@ -396,7 +417,7 @@ do
                     Flag = "SilentAimBone",
                     Default = SilentAimState.Bone,
                     Multi = false,
-                    Items = {"Head", "HumanoidRootPart", "Random"},
+                    Items = R6_BONE_ITEMS,
                     Callback = function(v) SilentAimState.Bone = v end
                 })
 
@@ -594,8 +615,6 @@ do
                         local ClosestDist = nil
                         local MousePos = getMousePosition()
                         local RawBone = SilentAimState.Bone
-                        local IsRandomBone = RawBone == "Random"
-                        local BoneName = IsRandomBone and "Head" or RawBone
 
                         local checkArrestSafety = SilentAimState.ArrestSafety
                         local checkMuzzleLOS = SilentAimState.MuzzleLOS
@@ -649,7 +668,7 @@ do
                             local HumanoidRootPart = FindFirstChild(Character, "HumanoidRootPart")
                             if not HumanoidRootPart then continue end
 
-                            local resolvedBone = IsRandomBone and (math.random() > 0.5 and "Head" or "HumanoidRootPart") or BoneName
+                            local resolvedBone = ResolveBone(RawBone, Character, LocalCharacter)
 
                             if SilentAimState.WallCheck and not IsPlayerVisible(Player, resolvedBone) then continue end
 
@@ -1418,7 +1437,13 @@ do
                     Default = true,
                     Callback = function(v) ESPState.Outline = v end
                 }) do
-                    local SKELETON_BONES = {"Head", "Left Hand", "Right Hand", "Left Foot", "Right Foot"}
+                    local SKELETON_LINKS = {
+                        {"Torso", "Head"},
+                        {"Torso", "Left Arm"},
+                        {"Torso", "Right Arm"},
+                        {"Torso", "Left Leg"},
+                        {"Torso", "Right Leg"},
+                    }
 
                     local function HideAll(drawings, highlight)
                         drawings.Text.Visible = false
@@ -1557,13 +1582,14 @@ do
                             end
 
                             if ESPState.Skeleton then
-                                local hrpScreen = Vector2.new(pos.X, pos.Y)
-                                for i, boneName in ipairs(SKELETON_BONES) do
-                                    local bone = Character:FindFirstChild(boneName)
-                                    if bone then
-                                        local bPos, bOn = workspace.CurrentCamera:WorldToViewportPoint(bone.Position)
-                                        if bOn then
-                                            SkeletonLines[i].From = hrpScreen
+                                for i, link in ipairs(SKELETON_LINKS) do
+                                    local partA = Character:FindFirstChild(link[1])
+                                    local partB = Character:FindFirstChild(link[2])
+                                    if partA and partB then
+                                        local aPos, aOn = workspace.CurrentCamera:WorldToViewportPoint(partA.Position)
+                                        local bPos, bOn = workspace.CurrentCamera:WorldToViewportPoint(partB.Position)
+                                        if aOn and bOn then
+                                            SkeletonLines[i].From = Vector2.new(aPos.X, aPos.Y)
                                             SkeletonLines[i].To = Vector2.new(bPos.X, bPos.Y)
                                             SkeletonLines[i].Color = espColor
                                             SkeletonLines[i].Visible = true
@@ -2611,6 +2637,9 @@ do
             return nil
         end
 
+        local RB_R6_BONES = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "HumanoidRootPart"}
+        local RB_R6_BONE_ITEMS = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "HumanoidRootPart", "Random", "Nearest Visible"}
+
         local function RBHasClearLOS(origin, targetPos, ignoreList)
             local direction = targetPos - origin
             local params = RaycastParams.new()
@@ -2618,6 +2647,25 @@ do
             params.FilterDescendantsInstances = ignoreList
             local result = workspace:Raycast(origin, direction, params)
             return result == nil
+        end
+
+        local function RBResolveBone(rawBone, character, localChar)
+            if rawBone == "Random" then
+                return RB_R6_BONES[math.random(1, #RB_R6_BONES)]
+            end
+            if rawBone == "Nearest Visible" then
+                local cam = workspace.CurrentCamera
+                for _, name in ipairs(RB_R6_BONES) do
+                    local part = character:FindFirstChild(name)
+                    if part then
+                        if #cam:GetPartsObscuringTarget({part.Position}, {localChar, character}) == 0 then
+                            return name
+                        end
+                    end
+                end
+                return "HumanoidRootPart"
+            end
+            return rawBone
         end
 
         local function RBGetInmateStatus(character)
@@ -2657,7 +2705,7 @@ do
                 if RBState.DeathCheck and (not humanoid or humanoid.Health <= 0) then continue end
                 if RBState.ForceFieldCheck and character:FindFirstChild("ForceField") then continue end
 
-                local bone = RBState.TargetBone == "Random" and (math.random() > 0.5 and "Head" or "HumanoidRootPart") or RBState.TargetBone
+                local bone = RBResolveBone(RBState.TargetBone, character, localChar)
                 local targetPart = character:FindFirstChild(bone) or character:FindFirstChild("HumanoidRootPart")
                 if not targetPart then continue end
 
@@ -2717,7 +2765,7 @@ do
             Flag = "RagebotTargetBone",
             Default = "HumanoidRootPart",
             Multi = false,
-            Items = {"Head", "HumanoidRootPart", "Random"},
+            Items = RB_R6_BONE_ITEMS,
             Callback = function(v) RBState.TargetBone = v end
         })
 
