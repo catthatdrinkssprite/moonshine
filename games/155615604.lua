@@ -783,7 +783,14 @@ do
                         local Arguments = {...}
                         local self = Arguments[1]
 
-                        if not ((SilentAimState.Enabled or RagebotForcedTarget) and self == workspace and not checkcaller()) then
+                        if self ~= workspace then return oldNamecall(...) end
+
+                        local isExecutor = checkcaller()
+                        if Method == "Raycast" and not isExecutor then
+                            return oldNamecall(...)
+                        end
+
+                        if not ((SilentAimState.Enabled or RagebotForcedTarget) and not isExecutor) then
                             return oldNamecall(...)
                         end
 

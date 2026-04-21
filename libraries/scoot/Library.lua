@@ -3318,7 +3318,7 @@ local Library do
 
                                 AnimationSpeedSliderItems["Slider"].Instance.Position = UDim2New(0, 8, 0, 45)
 
-                                OldColor = Colorpicker.Alpha
+                                OldAlpha = Colorpicker.Alpha
                                 
                                 Library:Thread(function()
                                     while task.wait() do 
