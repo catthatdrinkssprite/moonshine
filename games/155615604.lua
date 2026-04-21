@@ -41,13 +41,23 @@ do
         end)
     end
 
-    local RemovedDoorsRef = nil
     local RagebotForcedTarget = nil
     local RagebotMuzzleOrigin = nil
 
     local RunService = game:GetService("RunService")
     local RenderCache = {}
     local NotificationShown = {}
+    local CleanupCallbacks = {}
+    local TrackedDrawings = {}
+
+    local function RegisterCleanup(fn)
+        table.insert(CleanupCallbacks, fn)
+    end
+
+    local function TrackDrawing(obj)
+        table.insert(TrackedDrawings, obj)
+        return obj
+    end
 
     local function NewRender(Callback)
         local Connection = {
@@ -61,10 +71,13 @@ do
         return Connection
     end
 
-    RunService.RenderStepped:Connect(function(Delta)
+    local MasterRenderConnection = RunService.RenderStepped:Connect(function(Delta)
         for _, Connection in RenderCache do
             Connection.Function(Delta)
         end
+    end)
+    RegisterCleanup(function()
+        MasterRenderConnection:Disconnect()
     end)
 
     local PingWarningEnabled = false
@@ -190,6 +203,10 @@ do
             local NoFireRate = GunModsSubPage:Section({Name = "No Fire Rate", Side = 1}) do
                 NoFireRate:Toggle({
                     Name = "Enabled",
+                    ToolTip = {
+                        Name = "No Fire Rate",
+                        Description = "Sets weapon fire delay to zero — cap FPS to 60 or bullets arrive instantly"
+                    },
                     Flag = "NoFireRateEnabled",
                     Default = false,
                     Callback = function(state)
@@ -212,6 +229,10 @@ do
             local NoSpread = GunModsSubPage:Section({Name = "No Spread", Side = 2}) do
                 NoSpread:Toggle({
                     Name = "Enabled",
+                    ToolTip = {
+                        Name = "No Spread",
+                        Description = "Removes bullet spread for perfect accuracy on every shot"
+                    },
                     Flag = "NoSpreadEnabled",
                     Default = false,
                     Callback = function(state)
@@ -227,9 +248,18 @@ do
                 })
             end
 
+            RegisterCleanup(function()
+                for _, conn in pairs(GunModConnections) do conn:Disconnect() end
+                for _, attr in pairs({"FireRate", "SpreadRadius", "AutoFire"}) do RevertMod(attr) end
+            end)
+
             local ForceAutoFire = GunModsSubPage:Section({Name = "Force Auto Fire", Side = 1}) do
                 ForceAutoFire:Toggle({
                     Name = "Enabled",
+                    ToolTip = {
+                        Name = "Force Auto Fire",
+                        Description = "Makes all weapons fully automatic — hold click to spray"
+                    },
                     Flag = "ForceAutoFireEnabled",
                     Default = false,
                     Callback = function(state)
@@ -263,6 +293,7 @@ do
                     Radius = 130,
                     Bone = "Head",
                     WallCheck = false,
+                    MuzzleLOS = false,
                     ForceFieldCheck = true,
                     Teams = {},
                     InmateTypes = {},
@@ -284,6 +315,10 @@ do
 
                 SilentAimSection:Toggle({
                     Name = "Enabled",
+                    ToolTip = {
+                        Name = "Silent Aim",
+                        Description = "Redirects bullet raycasts toward the closest valid target without moving your camera"
+                    },
                     Flag = "SilentAimEnabled",
                     Default = SilentAimState.Enabled,
                     Callback = function(v) SilentAimState.Enabled = v end
@@ -313,6 +348,10 @@ do
 
                 SilentAimSection:Toggle({
                     Name = "FoV Circle",
+                    ToolTip = {
+                        Name = "FoV Circle",
+                        Description = "Shows a circle around your cursor representing the targeting radius"
+                    },
                     Flag = "SilentAimFoVEnabled",
                     Default = SilentAimState.FoVCircle,
                     Callback = function(v) SilentAimState.FoVCircle = v end
@@ -326,6 +365,10 @@ do
 
                 SilentAimSection:Toggle({
                     Name = "Tracer",
+                    ToolTip = {
+                        Name = "Tracer",
+                        Description = "Draws a line from your cursor to the current target"
+                    },
                     Flag = "SilentAimTracerEnabled",
                     Default = SilentAimState.Tracer,
                     Callback = function(v) SilentAimState.Tracer = v end
@@ -359,13 +402,32 @@ do
 
                 SilentAimSection:Toggle({
                     Name = "Wall Check",
+                    ToolTip = {
+                        Name = "Wall Check",
+                        Description = "Skips targets obscured by walls from the camera's perspective"
+                    },
                     Flag = "SilentAimWallCheck",
                     Default = SilentAimState.WallCheck,
                     Callback = function(v) SilentAimState.WallCheck = v end
                 })
 
                 SilentAimSection:Toggle({
+                    Name = "Muzzle LOS",
+                    ToolTip = {
+                        Name = "Muzzle LOS",
+                        Description = "Raycasts from the gun's muzzle to the target — skips targets that would waste bullets on walls"
+                    },
+                    Flag = "SilentAimMuzzleLOS",
+                    Default = SilentAimState.MuzzleLOS,
+                    Callback = function(v) SilentAimState.MuzzleLOS = v end
+                })
+
+                SilentAimSection:Toggle({
                     Name = "ForceField Check",
+                    ToolTip = {
+                        Name = "ForceField Check",
+                        Description = "Skips targets with an active spawn ForceField"
+                    },
                     Flag = "SilentAimForceFieldCheck",
                     Default = SilentAimState.ForceFieldCheck,
                     Callback = function(v) SilentAimState.ForceFieldCheck = v end
@@ -397,6 +459,10 @@ do
 
                 SilentAimSection:Toggle({
                     Name = "Death Check",
+                    ToolTip = {
+                        Name = "Death Check",
+                        Description = "Skips dead players so you don't waste shots on corpses"
+                    },
                     Flag = "SilentAimDeathCheck",
                     Default = SilentAimState.DeathCheck,
                     Callback = function(v) SilentAimState.DeathCheck = v end
@@ -404,6 +470,10 @@ do
 
                 SilentAimSection:Toggle({
                     Name = "Friend Check",
+                    ToolTip = {
+                        Name = "Friend Check",
+                        Description = "Won't target players on your Roblox friends list"
+                    },
                     Flag = "SilentAimFriendCheck",
                     Default = SilentAimState.FriendCheck,
                     Callback = function(v) SilentAimState.FriendCheck = v end
@@ -434,7 +504,7 @@ do
                         SAWhitelistDropdown:Remove(p.Name)
                     end)
                 end do
-                    local FoVCircle = Drawing.new("Circle")
+                    local FoVCircle = TrackDrawing(Drawing.new("Circle"))
                     FoVCircle.Thickness = 1
                     FoVCircle.NumSides = 100
                     FoVCircle.Filled = false
@@ -442,7 +512,7 @@ do
                     FoVCircle.ZIndex = 999
                     FoVCircle.Transparency = 1
 
-                    local Tracer = Drawing.new("Line")
+                    local Tracer = TrackDrawing(Drawing.new("Line"))
                     Tracer.Thickness = 1
                     Tracer.Visible = false
                     Tracer.ZIndex = 999
@@ -525,21 +595,29 @@ do
                         local MousePos = getMousePosition()
                         local BoneName = SilentAimState.Bone
 
-                        local DoorsFolder = SilentAimState.WallCheck and RemovedDoorsRef or nil
-                        local OldParent
-                        if DoorsFolder then
-                            OldParent = DoorsFolder.Parent
-                            DoorsFolder.Parent = workspace
+                        local checkArrestSafety = SilentAimState.ArrestSafety
+                        local checkMuzzleLOS = SilentAimState.MuzzleLOS
+                        local LocalCharacter = LocalPlayer.Character
+                        local holdingTaser = false
+                        local muzzleOrigin = nil
+
+                        if LocalCharacter then
+                            local tool = LocalCharacter:FindFirstChildOfClass("Tool")
+                            if tool then
+                                if checkArrestSafety then
+                                    holdingTaser = tool.Name == "Taser"
+                                end
+                                if checkMuzzleLOS then
+                                    local muzzle = tool:FindFirstChild("Muzzle") or tool:FindFirstChild("Handle")
+                                    if muzzle then muzzleOrigin = muzzle.Position end
+                                end
+                            end
                         end
 
-                        local checkArrestSafety = SilentAimState.ArrestSafety
-                        local holdingTaser = false
-                        if checkArrestSafety then
-                            local char = LocalPlayer.Character
-                            if char then
-                                local tool = char:FindFirstChildOfClass("Tool")
-                                holdingTaser = tool and tool.Name == "Taser"
-                            end
+                        local losParams
+                        if muzzleOrigin then
+                            losParams = RaycastParams.new()
+                            losParams.FilterType = Enum.RaycastFilterType.Exclude
                         end
 
                         for _, Player in next, GetPlayers(Players) do
@@ -571,6 +649,12 @@ do
 
                             if SilentAimState.WallCheck and not IsPlayerVisible(Player) then continue end
 
+                            if muzzleOrigin then
+                                local targetBone = FindFirstChild(Character, BoneName) or HumanoidRootPart
+                                losParams.FilterDescendantsInstances = {LocalCharacter, Character}
+                                if workspace:Raycast(muzzleOrigin, targetBone.Position - muzzleOrigin, losParams) then continue end
+                            end
+
                             local ScreenPos, OnScreen = WorldToViewportPoint(Camera, HumanoidRootPart.Position)
                             if not OnScreen then continue end
 
@@ -579,10 +663,6 @@ do
                                 Closest = FindFirstChild(Character, BoneName) or HumanoidRootPart
                                 ClosestDist = Distance
                             end
-                        end
-
-                        if DoorsFolder and OldParent then
-                            DoorsFolder.Parent = OldParent
                         end
 
                         CachedClosestResult = Closest
@@ -690,6 +770,10 @@ do
 
                         return oldNamecall(...)
                     end))
+
+                    RegisterCleanup(function()
+                        hookmetamethod(game, "__namecall", oldNamecall)
+                    end)
                 end
             end
         end
@@ -818,9 +902,32 @@ do
                 end
             end)
 
+            RegisterCleanup(function()
+                for player, conn in pairs(HealthConnections) do
+                    conn:Disconnect()
+                end
+                local function RestoreAllSounds(container)
+                    for _, tool in pairs(container:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            local handle = tool:FindFirstChild("Handle")
+                            if handle then
+                                local s = handle:FindFirstChild("ShootSound")
+                                if s and s:IsA("Sound") then s.Volume = 0.5 end
+                            end
+                        end
+                    end
+                end
+                RestoreAllSounds(LocalPlayer.Backpack)
+                if LocalPlayer.Character then RestoreAllSounds(LocalPlayer.Character) end
+            end)
+
             local HitSoundsSection = HitSoundsSubPage:Section({Name = "Hit Sounds", Side = 1}) do
                 HitSoundsSection:Toggle({
                     Name = "Enabled",
+                    ToolTip = {
+                        Name = "Hit Sounds",
+                        Description = "Plays a custom sound when your bullets damage a player"
+                    },
                     Flag = "HitSoundsEnabled",
                     Default = false,
                     Callback = function(v) HitSoundState.Enabled = v end
@@ -828,6 +935,10 @@ do
 
                 HitSoundsSection:Toggle({
                     Name = "Mute Gun Sound",
+                    ToolTip = {
+                        Name = "Mute Gun Sound",
+                        Description = "Silences the weapon's shoot sound effect"
+                    },
                     Flag = "HitSoundsMuteGun",
                     Default = false,
                     Callback = function(v)
@@ -878,6 +989,10 @@ do
             local KillSoundsSection = HitSoundsSubPage:Section({Name = "Kill Sounds", Side = 2}) do
                 KillSoundsSection:Toggle({
                     Name = "Enabled",
+                    ToolTip = {
+                        Name = "Kill Sounds",
+                        Description = "Plays a custom sound when you eliminate a player"
+                    },
                     Flag = "KillSoundsEnabled",
                     Default = false,
                     Callback = function(v) KillSoundState.Enabled = v end
@@ -914,6 +1029,10 @@ do
             local NoclipSection = MovementPage:Section({Name = "Noclip", Side = 1}) do
                 local NoclipEnabled = NoclipSection:Toggle({
                     Name = "Enabled",
+                    ToolTip = {
+                        Name = "Noclip",
+                        Description = "Walk through walls, floors, and all solid objects"
+                    },
                     Flag = "NoclipEnabled",
                     Default = false
                 }) do
@@ -960,6 +1079,10 @@ do
             local InfJumpSection = MovementPage:Section({Name = "Infinite Jump", Side = 2}) do
                 local InfJumpEnabled = InfJumpSection:Toggle({
                     Name = "Enabled",
+                    ToolTip = {
+                        Name = "Infinite Jump",
+                        Description = "Jump in mid-air without needing to touch the ground"
+                    },
                     Flag = "InfJumpEnabled",
                     Default = false
                 }) do
@@ -1101,6 +1224,10 @@ do
 
                 ESPFilters:Toggle({
                     Name = "Friend Check",
+                    ToolTip = {
+                        Name = "Friend Check",
+                        Description = "Applies whitelist behavior to players on your Roblox friends list"
+                    },
                     Flag = "ESPFriendCheck",
                     Default = false,
                     Callback = function(v) ESPFilterState.FriendCheck = v end
@@ -1154,6 +1281,10 @@ do
             local NameESP = ESPSubPage:Section({Name = "Name ESP", Side = 1}) do
                 NameESP:Toggle({
                     Name = "Enabled",
+                    ToolTip = {
+                        Name = "Name ESP",
+                        Description = "Shows player names floating above their heads through walls"
+                    },
                     Flag = "NameESPEnabled",
                     Default = NameESPState.Enabled,
                     Callback = function(callback)
@@ -1189,6 +1320,10 @@ do
                 
                 NameESP:Toggle({
                     Name = "Inmate Status",
+                    ToolTip = {
+                        Name = "Inmate Status",
+                        Description = "Prefixes names with [W] for wanted or [A] for aggressive inmates"
+                    },
                     Flag = "NameESPInmateStatus",
                     Default = NameESPState.InmateStatus,
                     Callback = function(callback)
@@ -1207,7 +1342,7 @@ do
                     local function Apply(Character)
                         if game.Players:GetPlayerFromCharacter(Character) then
                             local Player = game.Players:GetPlayerFromCharacter(Character)
-                            local Text = Drawing.new("Text")
+                            local Text = TrackDrawing(Drawing.new("Text"))
                             Text.Visible = false
                             Text.ZIndex = 3
                             Text.Size = 12
@@ -1290,6 +1425,10 @@ do
 
                 BoxESP:Toggle({
                     Name = "Enabled",
+                    ToolTip = {
+                        Name = "Box ESP",
+                        Description = "Draws 2D bounding boxes around players visible through walls"
+                    },
                     Flag = "BoxESPEnabled",
                     Default = BoxESPState.Enabled,
                     Callback = function(v) BoxESPState.Enabled = v end
@@ -1323,10 +1462,10 @@ do
                     local function Apply(Character)
                         if game.Players:GetPlayerFromCharacter(Character) then
                             local Player = game.Players:GetPlayerFromCharacter(Character)
-                            local Box = Drawing.new("Square")
+                            local Box = TrackDrawing(Drawing.new("Square"))
                             Box.Visible = false
                             Box.ZIndex = 2
-                            local BoxOutline = Drawing.new("Square")
+                            local BoxOutline = TrackDrawing(Drawing.new("Square"))
                             BoxOutline.Visible = false
                             BoxOutline.Thickness = 2
                             BoxOutline.ZIndex = 1
@@ -1409,29 +1548,115 @@ do
     end
 
     do
+        local DoorStorage = game:GetService("Lighting")
+        local StorageName = "MoonshineDoorStorage"
+
         local RemoveDoors = WorldPage:Section({Name = "Remove Doors", Side = 1}) do
-            local Enabled = RemoveDoors:Toggle({
+            RemoveDoors:Toggle({
                 Name = "Enabled",
+                ToolTip = {
+                    Name = "Remove Doors",
+                    Description = "Removes all doors from the map — purely visual, server still has them"
+                },
                 Flag = "RemoveDoorsEnabled",
                 Default = false,
-                Callback = function(callback)
-                    if callback == true then
+                Callback = function(enabled)
+                    if enabled then
                         local Doors = workspace:FindFirstChild("Doors")
                         if not Doors then return end
-                        RemovedDoorsRef = Doors
-                        local TemporaryDoorFolder = Instance.new("Folder", game.Lighting)
-                        TemporaryDoorFolder.Name = "TemporaryDoorFolder"
-                        Doors.Parent = TemporaryDoorFolder
+                        local folder = Instance.new("Folder")
+                        folder.Name = StorageName
+                        folder.Parent = DoorStorage
+                        Doors.Parent = folder
                     else
-                        local TemporaryDoorFolder = game.Lighting:FindFirstChild("TemporaryDoorFolder")
-                        if not TemporaryDoorFolder then return end
-                        local Doors = TemporaryDoorFolder:FindFirstChild("Doors")
+                        local folder = DoorStorage:FindFirstChild(StorageName)
+                        if not folder then return end
+                        local Doors = folder:FindFirstChild("Doors")
                         if Doors then Doors.Parent = workspace end
-                        TemporaryDoorFolder:Destroy()
-                        RemovedDoorsRef = nil
+                        folder:Destroy()
                     end
                 end
             })
+        end
+
+        RegisterCleanup(function()
+            local folder = DoorStorage:FindFirstChild(StorageName)
+            if folder then
+                local Doors = folder:FindFirstChild("Doors")
+                if Doors then Doors.Parent = workspace end
+                folder:Destroy()
+            end
+        end)
+
+        local BypassDoors = WorldPage:Section({Name = "Bypass Doors", Side = 1}) do
+            local DummyFolder = nil
+
+            BypassDoors:Toggle({
+                Name = "Enabled",
+                ToolTip = {
+                    Name = "Bypass Doors",
+                    Description = "Replaces doors with passthrough parts — walk through any door as a guard"
+                },
+                Flag = "BypassDoorsEnabled",
+                Default = false,
+                Callback = function(enabled)
+                    if enabled then
+                        local Doors = workspace:FindFirstChild("Doors")
+                        if not Doors then return end
+
+                        DummyFolder = Instance.new("Folder")
+                        DummyFolder.Name = "BypassDoorDummies"
+                        DummyFolder.Parent = workspace
+
+                        for _, child in pairs(Doors:GetChildren()) do
+                            local cf, size
+                            if child:IsA("Model") then
+                                cf, size = child:GetBoundingBox()
+                            elseif child:IsA("BasePart") then
+                                cf = child.CFrame
+                                size = child.Size
+                            else
+                                continue
+                            end
+
+                            local dummy = Instance.new("Part")
+                            dummy.Name = child.Name
+                            dummy.Size = size
+                            dummy.CFrame = cf
+                            dummy.Anchored = true
+                            dummy.CanCollide = false
+                            dummy.CanTouch = false
+                            dummy.Transparency = 0.75
+                            dummy.Material = Enum.Material.ForceField
+                            dummy.Color = Color3.fromRGB(120, 180, 255)
+                            dummy.Parent = DummyFolder
+                        end
+
+                        local folder = Instance.new("Folder")
+                        folder.Name = StorageName
+                        folder.Parent = DoorStorage
+                        Doors.Parent = folder
+                    else
+                        local folder = DoorStorage:FindFirstChild(StorageName)
+                        if folder then
+                            local Doors = folder:FindFirstChild("Doors")
+                            if Doors then Doors.Parent = workspace end
+                            folder:Destroy()
+                        end
+
+                        if DummyFolder then
+                            DummyFolder:Destroy()
+                            DummyFolder = nil
+                        end
+                    end
+                end
+            })
+
+            RegisterCleanup(function()
+                if DummyFolder then
+                    DummyFolder:Destroy()
+                end
+            end)
         end
     end
 
@@ -1454,6 +1679,10 @@ do
         local RemoveJumpCooldown = MiscPage:Section({Name = "Remove Jump Cooldown", Side = 1}) do
             local Enabled = RemoveJumpCooldown:Toggle({
                 Name = "Enabled",
+                ToolTip = {
+                    Name = "Remove Jump Cooldown",
+                    Description = "Disables the forced delay between consecutive jumps"
+                },
                 Flag = "RemoveJumpCooldownEnabled",
                 Default = false
             }) do
@@ -1472,6 +1701,10 @@ do
         local AntiInvisible = MiscPage:Section({Name = "Anti Invisible", Side = 2}) do
             local Enabled = AntiInvisible:Toggle({
                 Name = "Enabled",
+                ToolTip = {
+                    Name = "Anti Invisible",
+                    Description = "Detects the invisibility glitch and highlights offending players in red"
+                },
                 Flag = "AntiInvisibleEnabled",
                 Default = false
             }) do
@@ -1529,6 +1762,12 @@ do
                         end
                     end
                 end)
+
+                RegisterCleanup(function()
+                    for player, _ in pairs(FlaggedPlayers) do
+                        CleanupPlayer(player)
+                    end
+                end)
             end
         end
     end
@@ -1537,6 +1776,10 @@ do
         local AlwaysBackpack = MiscPage:Section({Name = "Always Backpack", Side = 1}) do
             local Enabled = AlwaysBackpack:Toggle({
                 Name = "Enabled",
+                ToolTip = {
+                    Name = "Always Backpack",
+                    Description = "Prevents the game from hiding your inventory toolbar"
+                },
                 Flag = "AlwaysBackpackEnabled",
                 Default = false
             }) do
@@ -1554,6 +1797,10 @@ do
         local AntiTase = MiscPage:Section({Name = "Anti Tase", Side = 2}) do
             local Enabled = AntiTase:Toggle({
                 Name = "Enabled",
+                ToolTip = {
+                    Name = "Anti Tase",
+                    Description = "Cancels the taser stun animation and restores your movement instantly"
+                },
                 Flag = "AntiTaseEnabled",
                 Default = false
             }) do
@@ -1640,7 +1887,7 @@ do
             local CIRCLE_SEGMENTS = 40
             local RadiusLines = {}
             for i = 1, CIRCLE_SEGMENTS do
-                local line = Drawing.new("Line")
+                local line = TrackDrawing(Drawing.new("Line"))
                 line.Thickness = 1
                 line.Visible = false
                 line.ZIndex = 998
@@ -1649,7 +1896,7 @@ do
                 RadiusLines[i] = line
             end
 
-            local TargetLine = Drawing.new("Line")
+            local TargetLine = TrackDrawing(Drawing.new("Line"))
             TargetLine.Thickness = 1.5
             TargetLine.Visible = false
             TargetLine.ZIndex = 998
@@ -1657,6 +1904,10 @@ do
 
             ArrestAura:Toggle({
                 Name = "Enabled",
+                ToolTip = {
+                    Name = "Arrest Aura",
+                    Description = "Automatically arrests the closest criminal or wanted inmate within radius"
+                },
                 Flag = "ArrestAuraEnabled",
                 Default = false,
                 Callback = function(v)
@@ -1703,6 +1954,10 @@ do
 
             ArrestAura:Toggle({
                 Name = "Friend Check",
+                ToolTip = {
+                    Name = "Friend Check",
+                    Description = "Won't arrest players on your Roblox friends list"
+                },
                 Flag = "ArrestAuraFriendCheck",
                 Default = false,
                 Callback = function(v) AAState.FriendCheck = v end
@@ -1881,7 +2136,7 @@ do
             local FA_CIRCLE_SEGMENTS = 40
             local FARadiusLines = {}
             for i = 1, FA_CIRCLE_SEGMENTS do
-                local line = Drawing.new("Line")
+                local line = TrackDrawing(Drawing.new("Line"))
                 line.Thickness = 1
                 line.Visible = false
                 line.ZIndex = 997
@@ -1890,7 +2145,7 @@ do
                 FARadiusLines[i] = line
             end
 
-            local FATargetLine = Drawing.new("Line")
+            local FATargetLine = TrackDrawing(Drawing.new("Line"))
             FATargetLine.Thickness = 1.5
             FATargetLine.Visible = false
             FATargetLine.ZIndex = 997
@@ -1898,6 +2153,10 @@ do
 
             FistAura:Toggle({
                 Name = "Enabled",
+                ToolTip = {
+                    Name = "Fist Aura",
+                    Description = "Automatically punches the closest valid player within radius"
+                },
                 Flag = "FistAuraEnabled",
                 Default = false,
                 Callback = function(v)
@@ -1968,6 +2227,10 @@ do
 
             FistAura:Toggle({
                 Name = "Friend Check",
+                ToolTip = {
+                    Name = "Friend Check",
+                    Description = "Won't punch players on your Roblox friends list"
+                },
                 Flag = "FistAuraFriendCheck",
                 Default = false,
                 Callback = function(v) FAState.FriendCheck = v end
@@ -2213,13 +2476,6 @@ do
             local bestTarget = nil
             local bestDist = math.huge
 
-            local doorsFolder = RemovedDoorsRef
-            local oldParent
-            if doorsFolder then
-                oldParent = doorsFolder.Parent
-                doorsFolder.Parent = workspace
-            end
-
             for _, player in pairs(Players:GetPlayers()) do
                 if player == LocalPlayer then continue end
                 if RBState.Whitelist[player.Name] then continue end
@@ -2253,15 +2509,15 @@ do
                 end
             end
 
-            if doorsFolder and oldParent then
-                doorsFolder.Parent = oldParent
-            end
-
             return bestTarget
         end
 
         RagebotSection:Toggle({
             Name = "Enabled",
+            ToolTip = {
+                Name = "Ragebot",
+                Description = "Fully automated combat — acquires targets, aims, and fires with no input needed"
+            },
             Flag = "RagebotEnabled",
             Default = false,
             Callback = function(v)
@@ -2329,6 +2585,10 @@ do
 
         RagebotConfigSection:Toggle({
             Name = "Death Check",
+            ToolTip = {
+                Name = "Death Check",
+                Description = "Skips dead players so the ragebot doesn't waste ammo on corpses"
+            },
             Flag = "RagebotDeathCheck",
             Default = true,
             Callback = function(v) RBState.DeathCheck = v end
@@ -2336,6 +2596,10 @@ do
 
         RagebotConfigSection:Toggle({
             Name = "ForceField Check",
+            ToolTip = {
+                Name = "ForceField Check",
+                Description = "Skips targets with an active spawn ForceField"
+            },
             Flag = "RagebotForceFieldCheck",
             Default = true,
             Callback = function(v) RBState.ForceFieldCheck = v end
@@ -2343,6 +2607,10 @@ do
 
         RagebotConfigSection:Toggle({
             Name = "Friend Check",
+            ToolTip = {
+                Name = "Friend Check",
+                Description = "Won't target players on your Roblox friends list"
+            },
             Flag = "RagebotFriendCheck",
             Default = false,
             Callback = function(v) RBState.FriendCheck = v end
@@ -2465,5 +2733,18 @@ do
                 RagebotMuzzleOrigin = nil
             end
         end)
+    end
+
+    local OriginalUnload = Library.Unload
+    Library.Unload = function(self)
+        for i = #CleanupCallbacks, 1, -1 do
+            pcall(CleanupCallbacks[i])
+        end
+        for _, drawing in ipairs(TrackedDrawings) do
+            pcall(drawing.Remove, drawing)
+        end
+        CleanupCallbacks = {}
+        TrackedDrawings = {}
+        OriginalUnload(self)
     end
 end
