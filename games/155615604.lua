@@ -255,6 +255,7 @@ do
                 local SilentAimState = {
                     Enabled = false,
                     Triggerbot = false,
+                    ArrestSafety = false,
                     FoVCircle = false,
                     FoVCircleColor = Library.Theme.Accent,
                     Tracer = false,
@@ -297,6 +298,17 @@ do
                     Flag = "SilentAimTriggerbot",
                     Default = SilentAimState.Triggerbot,
                     Callback = function(v) SilentAimState.Triggerbot = v end
+                })
+
+                SilentAimSection:Toggle({
+                    Name = "Arrest Safety",
+                    ToolTip = {
+                        Name = "Arrest Safety",
+                        Description = "Ignores arrestable inmates unless you are holding the Taser — killing them without cause is punishable"
+                    },
+                    Flag = "SilentAimArrestSafety",
+                    Default = SilentAimState.ArrestSafety,
+                    Callback = function(v) SilentAimState.ArrestSafety = v end
                 })
 
                 SilentAimSection:Toggle({
@@ -496,27 +508,39 @@ do
                         local TargetPart = FindFirstChild(PlayerCharacter, SilentAimState.Bone) or FindFirstChild(PlayerCharacter, "HumanoidRootPart")
                         if not TargetPart then return false end
 
-                        local DoorsFolder = RemovedDoorsRef
+                        return #GetPartsObscuringTarget(Camera, {TargetPart.Position}, {LocalPlayerCharacter, PlayerCharacter}) == 0
+                    end
+
+                    local SilentAimFrameCounter = 0
+                    local CachedClosestResult = nil
+                    local CachedClosestFrame = -1
+
+                    local function getClosestPlayer()
+                        if CachedClosestFrame == SilentAimFrameCounter then
+                            return CachedClosestResult
+                        end
+
+                        local Closest = nil
+                        local ClosestDist = nil
+                        local MousePos = getMousePosition()
+                        local BoneName = SilentAimState.Bone
+
+                        local DoorsFolder = SilentAimState.WallCheck and RemovedDoorsRef or nil
                         local OldParent
                         if DoorsFolder then
                             OldParent = DoorsFolder.Parent
                             DoorsFolder.Parent = workspace
                         end
 
-                        local ObscuringObjects = #GetPartsObscuringTarget(Camera, {TargetPart.Position}, {LocalPlayerCharacter, PlayerCharacter})
-
-                        if DoorsFolder and OldParent then
-                            DoorsFolder.Parent = OldParent
+                        local checkArrestSafety = SilentAimState.ArrestSafety
+                        local holdingTaser = false
+                        if checkArrestSafety then
+                            local char = LocalPlayer.Character
+                            if char then
+                                local tool = char:FindFirstChildOfClass("Tool")
+                                holdingTaser = tool and tool.Name == "Taser"
+                            end
                         end
-
-                        return ObscuringObjects == 0
-                    end
-
-                    local function getClosestPlayer()
-                        local Closest = nil
-                        local ClosestDist = nil
-                        local MousePos = getMousePosition()
-                        local BoneName = SilentAimState.Bone
 
                         for _, Player in next, GetPlayers(Players) do
                             if Player == LocalPlayer then continue end
@@ -529,9 +553,13 @@ do
                             local Character = Player.Character
                             if not Character then continue end
 
-                            if TeamName == "Inmates" and next(SilentAimState.InmateTypes) then
-                                local Status = GetInmateStatus(Character)
-                                if not SilentAimState.InmateTypes[Status] then continue end
+                            if TeamName == "Inmates" then
+                                local needStatus = next(SilentAimState.InmateTypes) or (checkArrestSafety and not holdingTaser)
+                                if needStatus then
+                                    local Status = GetInmateStatus(Character)
+                                    if next(SilentAimState.InmateTypes) and not SilentAimState.InmateTypes[Status] then continue end
+                                    if checkArrestSafety and not holdingTaser and Status == "Arrestable" then continue end
+                                end
                             end
 
                             local Humanoid = FindFirstChild(Character, "Humanoid")
@@ -553,11 +581,18 @@ do
                             end
                         end
 
+                        if DoorsFolder and OldParent then
+                            DoorsFolder.Parent = OldParent
+                        end
+
+                        CachedClosestResult = Closest
+                        CachedClosestFrame = SilentAimFrameCounter
                         return Closest
                     end
 
                     NewRender(function()
                         Camera = workspace.CurrentCamera
+                        SilentAimFrameCounter = SilentAimFrameCounter + 1
 
                         if SilentAimState.Enabled and SilentAimState.FoVCircle then
                             FoVCircle.Position = getMousePosition()
@@ -2178,6 +2213,13 @@ do
             local bestTarget = nil
             local bestDist = math.huge
 
+            local doorsFolder = RemovedDoorsRef
+            local oldParent
+            if doorsFolder then
+                oldParent = doorsFolder.Parent
+                doorsFolder.Parent = workspace
+            end
+
             for _, player in pairs(Players:GetPlayers()) do
                 if player == LocalPlayer then continue end
                 if RBState.Whitelist[player.Name] then continue end
@@ -2204,23 +2246,15 @@ do
                 local dist = (muzzlePos - targetPart.Position).Magnitude
                 if dist > range then continue end
 
-                local doorsFolder = RemovedDoorsRef
-                local oldParent
-                if doorsFolder then
-                    oldParent = doorsFolder.Parent
-                    doorsFolder.Parent = workspace
-                end
-
                 local clear = RBHasClearLOS(muzzlePos, targetPart.Position, {localChar, character})
-
-                if doorsFolder and oldParent then
-                    doorsFolder.Parent = oldParent
-                end
-
                 if clear and dist < bestDist then
                     bestDist = dist
                     bestTarget = targetPart
                 end
+            end
+
+            if doorsFolder and oldParent then
+                doorsFolder.Parent = oldParent
             end
 
             return bestTarget
