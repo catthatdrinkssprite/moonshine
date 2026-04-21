@@ -411,7 +411,7 @@ local Library do
         end
 
         Instances.ChangeItemTheme = function(self, Properties)
-            if not self.Instance then 
+            if not self.Instance or not Library then 
                 return
             end
 

@@ -1,4 +1,4 @@
---Prison Life
+--Prison Life (VC)
 local Library = loadstring(game:HttpGet("https://github.com/catthatdrinkssprite/moonshine/raw/main/libraries/scoot/Library.lua"))()
 
 local Window = Library:Window({
