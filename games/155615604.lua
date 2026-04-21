@@ -14,7 +14,7 @@ do
     local CombatPage = Window:Page({Name = "Combat", SubPages = true})
     local MovementPage = Window:Page({Name = "Movement", Columns = 2})
     local VisualsPage = Window:Page({Name = "Visuals", SubPages = true})
-    local WorldPage = Window:Page({Name = "World", Columns = 2})
+    local WorldPage = Window:Page({Name = "World", SubPages = true})
     local MiscPage = Window:Page({Name = "Misc", Columns = 2})
     local BlatantPage = Window:Page({Name = "Blatant", Columns = 2})
     local SettingsPage = Library:CreateSettingsPage(Window, Watermark, KeybindList)
@@ -1754,10 +1754,158 @@ do
     end
 
     do
+        local CharSubPage = VisualsPage:SubPage({Name = "Character", Columns = 2})
+
+        local FFState = {
+            Enabled = false,
+            ApplyTo = "Character",
+            TeamColor = true,
+            Color = Color3.fromRGB(0, 170, 255),
+            SelfOnly = true,
+        }
+
+        local OriginalMaterials = {}
+        local ActivePlayers = {}
+
+        local function ApplyForceField(character, color)
+            if not character then return end
+            local key = character
+            if not OriginalMaterials[key] then OriginalMaterials[key] = {} end
+
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    local isWeapon = part:FindFirstAncestorOfClass("Tool") ~= nil
+                    local isBody = not isWeapon
+
+                    local shouldApply = false
+                    if FFState.ApplyTo == "Character" then shouldApply = isBody
+                    elseif FFState.ApplyTo == "Weapon" then shouldApply = isWeapon
+                    elseif FFState.ApplyTo == "Both" then shouldApply = true end
+
+                    if shouldApply then
+                        if not OriginalMaterials[key][part] then
+                            OriginalMaterials[key][part] = {Material = part.Material, Color = part.Color}
+                        end
+                        part.Material = Enum.Material.ForceField
+                        part.Color = color
+                    else
+                        local orig = OriginalMaterials[key] and OriginalMaterials[key][part]
+                        if orig then
+                            part.Material = orig.Material
+                            part.Color = orig.Color
+                            OriginalMaterials[key][part] = nil
+                        end
+                    end
+                end
+            end
+        end
+
+        local function RevertCharacter(character)
+            local key = character
+            local saved = OriginalMaterials[key]
+            if not saved then return end
+            for part, orig in pairs(saved) do
+                if part and part.Parent then
+                    pcall(function()
+                        part.Material = orig.Material
+                        part.Color = orig.Color
+                    end)
+                end
+            end
+            OriginalMaterials[key] = nil
+        end
+
+        local function RevertAll()
+            for char, _ in pairs(OriginalMaterials) do
+                RevertCharacter(char)
+            end
+            OriginalMaterials = {}
+        end
+
+        local FFSection = CharSubPage:Section({Name = "ForceField Material", Side = 1}) do
+            FFSection:Toggle({
+                Name = "Enabled",
+                ToolTip = { Name = "ForceField Material", Description = "Replaces your character/weapon materials with the ForceField shader" },
+                Flag = "FFMatEnabled",
+                Default = false,
+                Callback = function(v)
+                    FFState.Enabled = v
+                    if not v then RevertAll() end
+                end
+            })
+
+            FFSection:Dropdown({
+                Name = "Apply To",
+                Flag = "FFMatApplyTo",
+                Default = "Character",
+                Multi = false,
+                Items = {"Character", "Weapon", "Both"},
+                Callback = function(v)
+                    RevertAll()
+                    FFState.ApplyTo = v
+                end
+            })
+
+            FFSection:Toggle({
+                Name = "Team Color",
+                Flag = "FFMatTeamColor",
+                Default = true,
+                Callback = function(v) FFState.TeamColor = v end
+            }):Colorpicker({
+                Name = "Color",
+                Flag = "FFMatColor",
+                Default = FFState.Color,
+                Alpha = 0,
+                Callback = function(v) FFState.Color = v end
+            })
+
+            FFSection:Toggle({
+                Name = "Self Only",
+                ToolTip = { Name = "Self Only", Description = "Only apply to your own character. Disable to apply to all players." },
+                Flag = "FFMatSelfOnly",
+                Default = true,
+                Callback = function(v)
+                    FFState.SelfOnly = v
+                    if v then RevertAll() end
+                end
+            })
+        end
+
+        NewRender(function()
+            if not FFState.Enabled then return end
+
+            local Players = game:GetService("Players")
+            local lp = Players.LocalPlayer
+
+            if FFState.SelfOnly then
+                local char = lp.Character
+                if char then
+                    local color = FFState.TeamColor and lp.TeamColor.Color or FFState.Color
+                    ApplyForceField(char, color)
+                end
+            else
+                for _, player in pairs(Players:GetPlayers()) do
+                    local char = player.Character
+                    if char then
+                        local color = FFState.TeamColor and player.TeamColor.Color or FFState.Color
+                        ApplyForceField(char, color)
+                    end
+                end
+            end
+        end)
+
+        RegisterCleanup(function()
+            RevertAll()
+        end)
+    end
+
+    do
+        local ObjectsSubPage = WorldPage:SubPage({Name = "Objects", Columns = 2})
+
         local DoorStorage = game:GetService("Lighting")
         local StorageName = "MoonshineDoorStorage"
 
-        local RemoveDoors = WorldPage:Section({Name = "Remove Doors", Side = 1}) do
+        local RemoveDoors = ObjectsSubPage:Section({Name = "Remove Doors", Side = 1}) do
             RemoveDoors:Toggle({
                 Name = "Enabled",
                 ToolTip = {
@@ -1794,7 +1942,7 @@ do
             end
         end)
 
-        local BypassDoors = WorldPage:Section({Name = "Bypass Doors", Side = 1}) do
+        local BypassDoors = ObjectsSubPage:Section({Name = "Bypass Doors", Side = 1}) do
             local DummyFolder = nil
 
             BypassDoors:Toggle({
@@ -1864,6 +2012,313 @@ do
                 end
             end)
         end
+    end
+
+    do
+        local LightingSubPage = WorldPage:SubPage({Name = "Lighting", Columns = 2})
+        local Lighting = game:GetService("Lighting")
+
+        local OriginalLighting = {
+            Ambient = Lighting.Ambient,
+            OutdoorAmbient = Lighting.OutdoorAmbient,
+            Brightness = Lighting.Brightness,
+            ClockTime = Lighting.ClockTime,
+            FogEnd = Lighting.FogEnd,
+            FogStart = Lighting.FogStart,
+            FogColor = Lighting.FogColor,
+            ColorShift_Top = Lighting.ColorShift_Top,
+            ColorShift_Bottom = Lighting.ColorShift_Bottom,
+        }
+
+        local OriginalSky = nil
+        local CustomSky = nil
+
+        do
+            local sky = Lighting:FindFirstChildOfClass("Sky")
+            if sky then
+                OriginalSky = {
+                    SkyboxBk = sky.SkyboxBk,
+                    SkyboxDn = sky.SkyboxDn,
+                    SkyboxFt = sky.SkyboxFt,
+                    SkyboxLf = sky.SkyboxLf,
+                    SkyboxRt = sky.SkyboxRt,
+                    SkyboxUp = sky.SkyboxUp,
+                    StarCount = sky.StarCount,
+                    CelestialBodiesShown = sky.CelestialBodiesShown,
+                }
+            end
+        end
+
+        local LightState = {
+            AmbientOverride = false,
+            OutdoorAmbientOverride = false,
+            BrightnessOverride = false,
+            ClockTimeOverride = false,
+            FogOverride = false,
+            ColorShiftOverride = false,
+            RemoveSky = false,
+            Fullbright = false,
+        }
+
+        local AmbientSection = LightingSubPage:Section({Name = "Ambient & Brightness", Side = 1}) do
+            AmbientSection:Toggle({
+                Name = "Override Ambient",
+                ToolTip = { Name = "Override Ambient", Description = "Override the indoor ambient lighting color" },
+                Flag = "LightAmbientOverride",
+                Default = false,
+                Callback = function(v)
+                    LightState.AmbientOverride = v
+                    if not v then Lighting.Ambient = OriginalLighting.Ambient end
+                end
+            }):Colorpicker({
+                Name = "Ambient Color",
+                Flag = "LightAmbientColor",
+                Default = OriginalLighting.Ambient,
+                Alpha = 0,
+                Callback = function(v)
+                    if LightState.AmbientOverride then Lighting.Ambient = v end
+                end
+            })
+
+            AmbientSection:Toggle({
+                Name = "Override Outdoor Ambient",
+                ToolTip = { Name = "Override Outdoor Ambient", Description = "Override the outdoor ambient lighting color" },
+                Flag = "LightOutdoorAmbientOverride",
+                Default = false,
+                Callback = function(v)
+                    LightState.OutdoorAmbientOverride = v
+                    if not v then Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient end
+                end
+            }):Colorpicker({
+                Name = "Outdoor Ambient Color",
+                Flag = "LightOutdoorAmbientColor",
+                Default = OriginalLighting.OutdoorAmbient,
+                Alpha = 0,
+                Callback = function(v)
+                    if LightState.OutdoorAmbientOverride then Lighting.OutdoorAmbient = v end
+                end
+            })
+
+            AmbientSection:Toggle({
+                Name = "Override Brightness",
+                ToolTip = { Name = "Override Brightness", Description = "Override the scene brightness value" },
+                Flag = "LightBrightnessOverride",
+                Default = false,
+                Callback = function(v)
+                    LightState.BrightnessOverride = v
+                    if not v then Lighting.Brightness = OriginalLighting.Brightness end
+                end
+            })
+
+            AmbientSection:Slider({
+                Name = "Brightness",
+                Flag = "LightBrightnessValue",
+                Default = OriginalLighting.Brightness,
+                Min = 0,
+                Max = 10,
+                Decimals = 0.1,
+                Callback = function(v)
+                    if LightState.BrightnessOverride then Lighting.Brightness = v end
+                end
+            })
+
+            AmbientSection:Toggle({
+                Name = "Fullbright",
+                ToolTip = { Name = "Fullbright", Description = "Maxes out ambient and brightness so everything is fully lit with no shadows" },
+                Flag = "LightFullbright",
+                Default = false,
+                Callback = function(v)
+                    LightState.Fullbright = v
+                    if v then
+                        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+                        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+                        Lighting.Brightness = 2
+                        Lighting.FogEnd = 1e9
+                        Lighting.FogStart = 1e9
+                        Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
+                        Lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
+                    else
+                        if not LightState.AmbientOverride then Lighting.Ambient = OriginalLighting.Ambient end
+                        if not LightState.OutdoorAmbientOverride then Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient end
+                        if not LightState.BrightnessOverride then Lighting.Brightness = OriginalLighting.Brightness end
+                        if not LightState.FogOverride then
+                            Lighting.FogEnd = OriginalLighting.FogEnd
+                            Lighting.FogStart = OriginalLighting.FogStart
+                        end
+                        if not LightState.ColorShiftOverride then
+                            Lighting.ColorShift_Top = OriginalLighting.ColorShift_Top
+                            Lighting.ColorShift_Bottom = OriginalLighting.ColorShift_Bottom
+                        end
+                    end
+                end
+            })
+        end
+
+        local TimeSection = LightingSubPage:Section({Name = "Time of Day", Side = 1}) do
+            TimeSection:Toggle({
+                Name = "Override Clock Time",
+                ToolTip = { Name = "Override Clock Time", Description = "Freeze the in-game time to a custom value" },
+                Flag = "LightClockTimeOverride",
+                Default = false,
+                Callback = function(v)
+                    LightState.ClockTimeOverride = v
+                    if not v then Lighting.ClockTime = OriginalLighting.ClockTime end
+                end
+            })
+
+            TimeSection:Slider({
+                Name = "Clock Time",
+                Flag = "LightClockTimeValue",
+                Default = OriginalLighting.ClockTime,
+                Min = 0,
+                Max = 24,
+                Decimals = 0.1,
+                Suffix = "h",
+                Callback = function(v)
+                    if LightState.ClockTimeOverride then Lighting.ClockTime = v end
+                end
+            })
+        end
+
+        local FogSection = LightingSubPage:Section({Name = "Fog", Side = 2}) do
+            FogSection:Toggle({
+                Name = "Override Fog",
+                ToolTip = { Name = "Override Fog", Description = "Override fog distance and color" },
+                Flag = "LightFogOverride",
+                Default = false,
+                Callback = function(v)
+                    LightState.FogOverride = v
+                    if not v and not LightState.Fullbright then
+                        Lighting.FogEnd = OriginalLighting.FogEnd
+                        Lighting.FogStart = OriginalLighting.FogStart
+                        Lighting.FogColor = OriginalLighting.FogColor
+                    end
+                end
+            }):Colorpicker({
+                Name = "Fog Color",
+                Flag = "LightFogColor",
+                Default = OriginalLighting.FogColor,
+                Alpha = 0,
+                Callback = function(v)
+                    if LightState.FogOverride then Lighting.FogColor = v end
+                end
+            })
+
+            FogSection:Slider({
+                Name = "Fog Start",
+                Flag = "LightFogStartValue",
+                Default = OriginalLighting.FogStart,
+                Min = 0,
+                Max = 5000,
+                Decimals = 1,
+                Callback = function(v)
+                    if LightState.FogOverride then Lighting.FogStart = v end
+                end
+            })
+
+            FogSection:Slider({
+                Name = "Fog End",
+                Flag = "LightFogEndValue",
+                Default = math.min(OriginalLighting.FogEnd, 5000),
+                Min = 0,
+                Max = 5000,
+                Decimals = 1,
+                Callback = function(v)
+                    if LightState.FogOverride then Lighting.FogEnd = v end
+                end
+            })
+
+            FogSection:Toggle({
+                Name = "Remove Fog",
+                ToolTip = { Name = "Remove Fog", Description = "Push fog distance to infinity, effectively removing it" },
+                Flag = "LightRemoveFog",
+                Default = false,
+                Callback = function(v)
+                    if v then
+                        Lighting.FogEnd = 1e9
+                        Lighting.FogStart = 1e9
+                    else
+                        if LightState.FogOverride then return end
+                        if not LightState.Fullbright then
+                            Lighting.FogEnd = OriginalLighting.FogEnd
+                            Lighting.FogStart = OriginalLighting.FogStart
+                        end
+                    end
+                end
+            })
+        end
+
+        local SkySection = LightingSubPage:Section({Name = "Sky & Color Shift", Side = 2}) do
+            SkySection:Toggle({
+                Name = "Remove Skybox",
+                ToolTip = { Name = "Remove Skybox", Description = "Removes the Sky object from Lighting, showing the default Roblox sky" },
+                Flag = "LightRemoveSky",
+                Default = false,
+                Callback = function(v)
+                    LightState.RemoveSky = v
+                    if v then
+                        local sky = Lighting:FindFirstChildOfClass("Sky")
+                        if sky then
+                            CustomSky = sky
+                            sky.Parent = nil
+                        end
+                    else
+                        if CustomSky then
+                            CustomSky.Parent = Lighting
+                            CustomSky = nil
+                        end
+                    end
+                end
+            })
+
+            SkySection:Toggle({
+                Name = "Override Color Shift",
+                ToolTip = { Name = "Override Color Shift", Description = "Override the top and bottom color shift tinting" },
+                Flag = "LightColorShiftOverride",
+                Default = false,
+                Callback = function(v)
+                    LightState.ColorShiftOverride = v
+                    if not v and not LightState.Fullbright then
+                        Lighting.ColorShift_Top = OriginalLighting.ColorShift_Top
+                        Lighting.ColorShift_Bottom = OriginalLighting.ColorShift_Bottom
+                    end
+                end
+            }):Colorpicker({
+                Name = "Top",
+                Flag = "LightColorShiftTop",
+                Default = OriginalLighting.ColorShift_Top,
+                Alpha = 0,
+                Callback = function(v)
+                    if LightState.ColorShiftOverride then Lighting.ColorShift_Top = v end
+                end
+            })
+
+            SkySection:Colorpicker({
+                Name = "Color Shift Bottom",
+                Flag = "LightColorShiftBottom",
+                Default = OriginalLighting.ColorShift_Bottom,
+                Alpha = 0,
+                Callback = function(v)
+                    if LightState.ColorShiftOverride then Lighting.ColorShift_Bottom = v end
+                end
+            })
+        end
+
+        RegisterCleanup(function()
+            Lighting.Ambient = OriginalLighting.Ambient
+            Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient
+            Lighting.Brightness = OriginalLighting.Brightness
+            Lighting.ClockTime = OriginalLighting.ClockTime
+            Lighting.FogEnd = OriginalLighting.FogEnd
+            Lighting.FogStart = OriginalLighting.FogStart
+            Lighting.FogColor = OriginalLighting.FogColor
+            Lighting.ColorShift_Top = OriginalLighting.ColorShift_Top
+            Lighting.ColorShift_Bottom = OriginalLighting.ColorShift_Bottom
+            if CustomSky then
+                CustomSky.Parent = Lighting
+                CustomSky = nil
+            end
+        end)
     end
 
     do
