@@ -30,15 +30,15 @@ do
                 end)
             end
         end
-        game:GetService("Players").PlayerAdded:Connect(function(p)
+        TrackConnection(game:GetService("Players").PlayerAdded:Connect(function(p)
             task.spawn(function()
                 local ok, result = pcall(LP.IsFriendsWith, LP, p.UserId)
                 if ok then FriendsCache[p.Name] = result end
             end)
-        end)
-        game:GetService("Players").PlayerRemoving:Connect(function(p)
+        end))
+        TrackConnection(game:GetService("Players").PlayerRemoving:Connect(function(p)
             FriendsCache[p.Name] = nil
-        end)
+        end))
     end
 
     local RagebotForcedTarget = nil
@@ -49,6 +49,7 @@ do
     local NotificationShown = {}
     local CleanupCallbacks = {}
     local TrackedDrawings = {}
+    local TrackedConnections = {}
 
     local function RegisterCleanup(fn)
         table.insert(CleanupCallbacks, fn)
@@ -57,6 +58,11 @@ do
     local function TrackDrawing(obj)
         table.insert(TrackedDrawings, obj)
         return obj
+    end
+
+    local function TrackConnection(conn)
+        table.insert(TrackedConnections, conn)
+        return conn
     end
 
     local function NewRender(Callback)
@@ -532,14 +538,14 @@ do
                         end
                     })
 
-                    game:GetService("Players").PlayerAdded:Connect(function(p)
+                    TrackConnection(game:GetService("Players").PlayerAdded:Connect(function(p)
                         SAWhitelistDropdown:Add(p.Name)
                         SABlacklistDropdown:Add(p.Name)
-                    end)
-                    game:GetService("Players").PlayerRemoving:Connect(function(p)
+                    end))
+                    TrackConnection(game:GetService("Players").PlayerRemoving:Connect(function(p)
                         SAWhitelistDropdown:Remove(p.Name)
                         SABlacklistDropdown:Remove(p.Name)
-                    end)
+                    end))
                 end do
                     local FoVCircle = TrackDrawing(Drawing.new("Circle"))
                     FoVCircle.Thickness = 1
@@ -929,12 +935,12 @@ do
                 for _, child in pairs(character:GetChildren()) do
                     HookTool(child)
                 end
-                character.ChildAdded:Connect(HookTool)
+                TrackConnection(character.ChildAdded:Connect(HookTool))
             end
 
             if LocalPlayer.Character then HookCharacter(LocalPlayer.Character) end
-            LocalPlayer.CharacterAdded:Connect(HookCharacter)
-            LocalPlayer.Backpack.ChildAdded:Connect(HookTool)
+            TrackConnection(LocalPlayer.CharacterAdded:Connect(HookCharacter))
+            TrackConnection(LocalPlayer.Backpack.ChildAdded:Connect(HookTool))
             for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
                 HookTool(tool)
             end
@@ -967,21 +973,21 @@ do
                 if player.Character then
                     task.spawn(ConnectHealth, player.Character)
                 end
-                player.CharacterAdded:Connect(function(char)
+                TrackConnection(player.CharacterAdded:Connect(function(char)
                     task.spawn(ConnectHealth, char)
-                end)
+                end))
             end
 
             for _, player in pairs(Players:GetPlayers()) do
                 TrackPlayer(player)
             end
-            Players.PlayerAdded:Connect(TrackPlayer)
-            Players.PlayerRemoving:Connect(function(player)
+            TrackConnection(Players.PlayerAdded:Connect(TrackPlayer))
+            TrackConnection(Players.PlayerRemoving:Connect(function(player)
                 if HealthConnections[player] then
                     HealthConnections[player]:Disconnect()
                     HealthConnections[player] = nil
                 end
-            end)
+            end))
 
             RegisterCleanup(function()
                 for player, conn in pairs(HealthConnections) do
@@ -1138,12 +1144,12 @@ do
                         end)
                     end
 
-                    LocalPlayer.CharacterAdded:Connect(SetupNoclip)
+                    TrackConnection(LocalPlayer.CharacterAdded:Connect(SetupNoclip))
                     if LocalPlayer.Character then
                         SetupNoclip(LocalPlayer.Character)
                     end
 
-                    game.RunService.Stepped:Connect(function()
+                    TrackConnection(game.RunService.Stepped:Connect(function()
                         if NoclipEnabled:Get() == true then
                             local character = LocalPlayer.Character
                             if not character then return end
@@ -1153,7 +1159,7 @@ do
                                 end
                             end
                         end
-                    end)
+                    end))
                 end
             end
 
@@ -1368,14 +1374,14 @@ do
                     end
                 })
 
-                game:GetService("Players").PlayerAdded:Connect(function(p)
+                TrackConnection(game:GetService("Players").PlayerAdded:Connect(function(p)
                     WhitelistDropdown:Add(p.Name)
                     ESPBlacklistDropdown:Add(p.Name)
-                end)
-                game:GetService("Players").PlayerRemoving:Connect(function(p)
+                end))
+                TrackConnection(game:GetService("Players").PlayerRemoving:Connect(function(p)
                     WhitelistDropdown:Remove(p.Name)
                     ESPBlacklistDropdown:Remove(p.Name)
-                end)
+                end))
 
                 ESPFilters:Dropdown({
                     Name = "Whitelist Mode",
@@ -1745,16 +1751,16 @@ do
 
                     for _, v in pairs(game:GetService("Players"):GetPlayers()) do
                         if v.Character then Apply(v.Character) end
-                        v.CharacterAdded:Connect(function(char)
+                        TrackConnection(v.CharacterAdded:Connect(function(char)
                             Apply(char)
-                        end)
+                        end))
                     end
 
-                    game:GetService("Players").PlayerAdded:Connect(function(v)
-                        v.CharacterAdded:Connect(function(char)
+                    TrackConnection(game:GetService("Players").PlayerAdded:Connect(function(v)
+                        TrackConnection(v.CharacterAdded:Connect(function(char)
                             Apply(char)
-                        end)
-                    end)
+                        end))
+                    end))
                 end
             end
 
@@ -2957,8 +2963,8 @@ do
                 end
             })
 
-            Players.PlayerAdded:Connect(function(p) AAWhitelistDropdown:Add(p.Name) end)
-            Players.PlayerRemoving:Connect(function(p) AAWhitelistDropdown:Remove(p.Name) end)
+            TrackConnection(Players.PlayerAdded:Connect(function(p) AAWhitelistDropdown:Add(p.Name) end))
+            TrackConnection(Players.PlayerRemoving:Connect(function(p) AAWhitelistDropdown:Remove(p.Name) end))
 
             NewRender(function()
                 if not AAState.Enabled then
@@ -3230,8 +3236,8 @@ do
                 end
             })
 
-            Players.PlayerAdded:Connect(function(p) FAWhitelistDropdown:Add(p.Name) end)
-            Players.PlayerRemoving:Connect(function(p) FAWhitelistDropdown:Remove(p.Name) end)
+            TrackConnection(Players.PlayerAdded:Connect(function(p) FAWhitelistDropdown:Add(p.Name) end))
+            TrackConnection(Players.PlayerRemoving:Connect(function(p) FAWhitelistDropdown:Remove(p.Name) end))
 
             NewRender(function()
                 if not FAState.Enabled then
@@ -3697,14 +3703,14 @@ do
             end
         })
 
-        Players.PlayerAdded:Connect(function(p)
+        TrackConnection(Players.PlayerAdded:Connect(function(p)
             RBWhitelistDropdown:Add(p.Name)
             RBBlacklistDropdown:Add(p.Name)
-        end)
-        Players.PlayerRemoving:Connect(function(p)
+        end))
+        TrackConnection(Players.PlayerRemoving:Connect(function(p)
             RBWhitelistDropdown:Remove(p.Name)
             RBBlacklistDropdown:Remove(p.Name)
-        end)
+        end))
 
         NewRender(function()
             if not RBState.Enabled then
@@ -3823,6 +3829,10 @@ do
 
     local OriginalUnload = Library.Unload
     Library.Unload = function(self)
+        for _, conn in ipairs(TrackedConnections) do
+            pcall(function() conn:Disconnect() end)
+        end
+        TrackedConnections = {}
         for i = #CleanupCallbacks, 1, -1 do
             pcall(CleanupCallbacks[i])
         end
