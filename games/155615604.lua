@@ -1273,281 +1273,370 @@ do
                 })
             end
 
-            local NameESPState = {
+            local ESPState = {
                 Enabled = false,
+                ShowSelf = false,
                 TeamColor = true,
                 Color = Library.Theme.Accent,
-                ShowSelf = false,
+                Outline = true,
+                Name = false,
                 InmateStatus = true,
-                Outline = true
+                Box = false,
+                Skeleton = false,
+                Chams = false,
+                ChamsColor = Library.Theme.Accent,
+                ChamsFillTransparency = 0.75,
+                ChamsOutlineTransparency = 0,
+                HealthBar = false,
+                HealthBarSide = "Left",
             }
-            
-            local NameESP = ESPSubPage:Section({Name = "Name ESP", Side = 1}) do
-                NameESP:Toggle({
+
+            local ActiveHighlights = {}
+
+            local ESPSection = ESPSubPage:Section({Name = "ESP", Side = 2}) do
+                ESPSection:Toggle({
                     Name = "Enabled",
-                    ToolTip = {
-                        Name = "Name ESP",
-                        Description = "Shows player names floating above their heads through walls"
-                    },
-                    Flag = "NameESPEnabled",
-                    Default = NameESPState.Enabled,
-                    Callback = function(callback)
-                        NameESPState.Enabled = callback
-                    end
+                    ToolTip = { Name = "ESP", Description = "Master toggle for all ESP components (name, box, skeleton, chams, health bar)" },
+                    Flag = "ESPEnabled",
+                    Default = false,
+                    Callback = function(v) ESPState.Enabled = v end
                 })
 
-                NameESP:Toggle({
-                    Name = "Team Color",
-                    Flag = "NameESPTeamColor",
-                    Default = NameESPState.TeamColor,
-                    Callback = function(callback)
-                        NameESPState.TeamColor = callback
-                    end
-                }):Colorpicker({
-                    Name = "Color",
-                    Flag = "NameESPColor",
-                    Default = NameESPState.Color,
-                    Alpha = 0,
-                    Callback = function(callback)
-                        NameESPState.Color = callback
-                    end
+                ESPSection:Toggle({
+                    Name = "Name",
+                    ToolTip = { Name = "Name ESP", Description = "Shows player names floating above their heads through walls" },
+                    Flag = "ESPName",
+                    Default = false,
+                    Callback = function(v) ESPState.Name = v end
                 })
 
-                NameESP:Toggle({
-                    Name = "Show Self",
-                    Flag = "NameESPShowSelf",
-                    Default = NameESPState.ShowSelf,
-                    Callback = function(callback)
-                        NameESPState.ShowSelf = callback
-                    end
-                })
-                
-                NameESP:Toggle({
+                ESPSection:Toggle({
                     Name = "Inmate Status",
-                    ToolTip = {
-                        Name = "Inmate Status",
-                        Description = "Prefixes names with [W] for wanted or [A] for aggressive inmates"
-                    },
-                    Flag = "NameESPInmateStatus",
-                    Default = NameESPState.InmateStatus,
-                    Callback = function(callback)
-                        NameESPState.InmateStatus = callback
-                    end
+                    ToolTip = { Name = "Inmate Status", Description = "Prefixes names with [W] for wanted or [A] for aggressive inmates" },
+                    Flag = "ESPInmateStatus",
+                    Default = true,
+                    Callback = function(v) ESPState.InmateStatus = v end
                 })
 
-                NameESP:Toggle({
-                    Name = "Outline",
-                    Flag = "NameESPOutline",
-                    Default = NameESPState.Outline,
-                    Callback = function(callback)
-                        NameESPState.Outline = callback
-                    end
-                }) do
-                    local function Apply(Character)
-                        if game.Players:GetPlayerFromCharacter(Character) then
-                            local Player = game.Players:GetPlayerFromCharacter(Character)
-                            local Text = TrackDrawing(Drawing.new("Text"))
-                            Text.Visible = false
-                            Text.ZIndex = 3
-                            Text.Size = 12
-                            Text.Center = true
-                            Text.OutlineColor = Color3.fromRGB(0, 0, 0)
-
-                            local Render = NewRender(function()
-                                local hrp = Character:FindFirstChild("HumanoidRootPart")
-                                if not hrp then Text.Visible = false return end
-                                local hum = Character:FindFirstChildOfClass("Humanoid")
-                                if not hum or hum.Health <= 0 then Text.Visible = false return end
-                                local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
-                                if onscreen then
-                                    if not ShouldShowPlayer(Player) then
-                                        Text.Visible = false
-                                        return
-                                    end
-                                    Text.Position = Vector2.new(pos.X, pos.Y)
-                                    if NameESPState.InmateStatus == true then
-                                        Text.Text = GetDisplayName(Character)
-                                    else
-                                        Text.Text = Character.Name
-                                    end
-                                    if NameESPState.ShowSelf == true then
-                                        Text.Visible = NameESPState.Enabled
-                                    else
-                                        if Character ~= game.Players.LocalPlayer.Character then
-                                            Text.Visible = NameESPState.Enabled
-                                        else
-                                            Text.Visible = false
-                                        end
-                                    end
-                                    if IsWhitelisted(Player) then
-                                        Text.Color = Color3.fromRGB(0, 255, 0)
-                                    elseif NameESPState.TeamColor == true then
-                                        Text.Color = Player.TeamColor.Color
-                                    else
-                                        Text.Color = NameESPState.Color
-                                    end
-                                    Text.Outline = NameESPState.Outline
-                                else
-                                    Text.Visible = false
-                                end
-                            end)
-
-                            Character.AncestryChanged:Connect(function(_, parent)
-                                if parent then else
-                                    Render:Disconnect()
-                                    Text:Destroy()
-                                    Text = nil
-                                end
-                            end)
-                        end
-                    end
-
-                    for _, v in pairs(game:GetService("Players"):GetPlayers()) do
-                        Apply(v.Character)
-
-                        v.CharacterAdded:Connect(function()
-                            Apply(v.Character)
-                        end)
-                    end
-
-                    game:GetService("Players").PlayerAdded:Connect(function(v)
-                        v.CharacterAdded:Connect(function()
-                            Apply(v.Character)
-                        end)
-                    end)
-                end
-            end
-
-            local BoxESP = ESPSubPage:Section({Name = "Box ESP", Side = 2}) do
-                local BoxESPState = {
-                    Enabled = false,
-                    TeamColor = true,
-                    Color = Library.Theme.Accent,
-                    ShowSelf = false,
-                    Outline = true
-                }
-
-                BoxESP:Toggle({
-                    Name = "Enabled",
-                    ToolTip = {
-                        Name = "Box ESP",
-                        Description = "Draws 2D bounding boxes around players visible through walls"
-                    },
-                    Flag = "BoxESPEnabled",
-                    Default = BoxESPState.Enabled,
-                    Callback = function(v) BoxESPState.Enabled = v end
+                ESPSection:Toggle({
+                    Name = "Box",
+                    ToolTip = { Name = "Box ESP", Description = "Draws 2D bounding boxes around players visible through walls" },
+                    Flag = "ESPBox",
+                    Default = false,
+                    Callback = function(v) ESPState.Box = v end
                 })
 
-                BoxESP:Toggle({
+                ESPSection:Toggle({
+                    Name = "Skeleton",
+                    ToolTip = { Name = "Skeleton ESP", Description = "Draws simplified skeleton lines connecting head, torso, hands and feet" },
+                    Flag = "ESPSkeleton",
+                    Default = false,
+                    Callback = function(v) ESPState.Skeleton = v end
+                })
+
+                ESPSection:Toggle({
+                    Name = "Chams",
+                    ToolTip = { Name = "Chams", Description = "Highlights player models with a colored overlay visible through walls" },
+                    Flag = "ESPChams",
+                    Default = false,
+                    Callback = function(v) ESPState.Chams = v end
+                }):Colorpicker({
+                    Name = "Chams Color",
+                    Flag = "ESPChamsColor",
+                    Default = Library.Theme.Accent,
+                    Alpha = 0,
+                    Callback = function(v) ESPState.ChamsColor = v end
+                })
+
+                ESPSection:Slider({
+                    Name = "Chams Fill Transparency",
+                    Flag = "ESPChamsFillTransparency",
+                    Default = 0.75,
+                    Min = 0,
+                    Max = 1,
+                    Decimals = 2,
+                    Callback = function(v) ESPState.ChamsFillTransparency = v end
+                })
+
+                ESPSection:Toggle({
+                    Name = "Health Bar",
+                    ToolTip = { Name = "Health Bar", Description = "Draws a vertical health bar next to the bounding box, green at full HP fading to red" },
+                    Flag = "ESPHealthBar",
+                    Default = false,
+                    Callback = function(v) ESPState.HealthBar = v end
+                })
+
+                ESPSection:Dropdown({
+                    Name = "Health Bar Side",
+                    Flag = "ESPHealthBarSide",
+                    Default = "Left",
+                    Multi = false,
+                    Items = {"Left", "Right"},
+                    Callback = function(v) ESPState.HealthBarSide = v end
+                })
+
+                ESPSection:Toggle({
                     Name = "Team Color",
-                    Flag = "BoxESPTeamColor",
-                    Default = BoxESPState.TeamColor,
-                    Callback = function(v) BoxESPState.TeamColor = v end
+                    Flag = "ESPTeamColor",
+                    Default = true,
+                    Callback = function(v) ESPState.TeamColor = v end
                 }):Colorpicker({
                     Name = "Color",
-                    Flag = "BoxESPColor",
-                    Default = BoxESPState.Color,
-                    Callback = function(v) BoxESPState.Color = v end
+                    Flag = "ESPColor",
+                    Default = Library.Theme.Accent,
+                    Alpha = 0,
+                    Callback = function(v) ESPState.Color = v end
                 })
 
-                BoxESP:Toggle({
+                ESPSection:Toggle({
                     Name = "Show Self",
-                    Flag = "BoxESPShowSelf",
-                    Default = BoxESPState.ShowSelf,
-                    Callback = function(v) BoxESPState.ShowSelf = v end
+                    Flag = "ESPShowSelf",
+                    Default = false,
+                    Callback = function(v) ESPState.ShowSelf = v end
                 })
 
-                BoxESP:Toggle({
+                ESPSection:Toggle({
                     Name = "Outline",
-                    Flag = "BoxESPOutline",
-                    Default = BoxESPState.Outline,
-                    Callback = function(v) BoxESPState.Outline = v end
+                    ToolTip = { Name = "Outline", Description = "Adds a dark outline to name text and box drawings for readability" },
+                    Flag = "ESPOutline",
+                    Default = true,
+                    Callback = function(v) ESPState.Outline = v end
                 }) do
+                    local SKELETON_BONES = {"Head", "Left Hand", "Right Hand", "Left Foot", "Right Foot"}
+
+                    local function HideAll(drawings, highlight)
+                        drawings.Text.Visible = false
+                        drawings.Box.Visible = false
+                        drawings.BoxOutline.Visible = false
+                        for i = 1, 5 do drawings.Skeleton[i].Visible = false end
+                        drawings.HealthBG.Visible = false
+                        drawings.HealthFill.Visible = false
+                        if highlight then highlight.Enabled = false end
+                    end
+
                     local function Apply(Character)
-                        if game.Players:GetPlayerFromCharacter(Character) then
-                            local Player = game.Players:GetPlayerFromCharacter(Character)
-                            local Box = TrackDrawing(Drawing.new("Square"))
-                            Box.Visible = false
-                            Box.ZIndex = 2
-                            local BoxOutline = TrackDrawing(Drawing.new("Square"))
-                            BoxOutline.Visible = false
-                            BoxOutline.Thickness = 2
-                            BoxOutline.ZIndex = 1
-                            BoxOutline.Color = Color3.fromRGB(0, 0, 0)
+                        local Player = game.Players:GetPlayerFromCharacter(Character)
+                        if not Player then return end
 
-                            local Render = NewRender(function()
-                                local hrp = Character:FindFirstChild("HumanoidRootPart")
-                                if not hrp then Box.Visible = false BoxOutline.Visible = false return end
-                                local hum = Character:FindFirstChildOfClass("Humanoid")
-                                if not hum or hum.Health <= 0 then Box.Visible = false BoxOutline.Visible = false return end
-                                local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
-                                if onscreen then
-                                    if not ShouldShowPlayer(Player) then
-                                        Box.Visible = false
-                                        BoxOutline.Visible = false
-                                        return
-                                    end
-                                    local scale = 1 / (pos.Z * math.tan(math.rad(workspace.CurrentCamera.FieldOfView * 0.5)) * 2) * 1000
-                                    local width, height = math.floor(4.5 * scale), math.floor(6 * scale)
-                                    local x, y = math.floor(pos.X), math.floor(pos.Y)
-                                    local xPosition, yPosition = math.floor(x - width * 0.5), math.floor((y - height * 0.5) + (0.5 * scale))
-                                    
-                                    Box.Size = Vector2.new(width, height)
-                                    Box.Position = Vector2.new(xPosition, yPosition)
-                                    BoxOutline.Size = Vector2.new(width, height)
-                                    BoxOutline.Position = Vector2.new(xPosition, yPosition)
-                                    if BoxESPState.ShowSelf == true then
-                                        Box.Visible = BoxESPState.Enabled
-                                        if Box.Visible == true then BoxOutline.Visible = BoxESPState.Outline else BoxOutline.Visible = false end
-                                    else
-                                        if Character ~= game.Players.LocalPlayer.Character then
-                                            Box.Visible = BoxESPState.Enabled
-                                            if Box.Visible == true then BoxOutline.Visible = BoxESPState.Outline else BoxOutline.Visible = false end
-                                        else
-                                            Box.Visible = false
-                                            BoxOutline.Visible = false
-                                        end
-                                    end
-                                    if IsWhitelisted(Player) then
-                                        Box.Color = Color3.fromRGB(0, 255, 0)
-                                    elseif BoxESPState.TeamColor == true then
-                                        Box.Color = Player.TeamColor.Color
-                                    else
-                                        Box.Color = BoxESPState.Color
-                                    end
-                                else
-                                    Box.Visible = false
-                                    BoxOutline.Visible = false
-                                end
-                            end)
+                        local Text = TrackDrawing(Drawing.new("Text"))
+                        Text.Visible = false
+                        Text.ZIndex = 5
+                        Text.Size = 12
+                        Text.Center = true
+                        Text.OutlineColor = Color3.fromRGB(0, 0, 0)
 
-                            Character.AncestryChanged:Connect(function(_, parent)
-                                if parent then else
-                                    Render:Disconnect()
-                                    Box:Destroy()
-                                    BoxOutline:Destroy()
-                                    Box = nil
-                                    BoxOutline = nil
-                                end
-                            end)
+                        local Box = TrackDrawing(Drawing.new("Square"))
+                        Box.Visible = false
+                        Box.ZIndex = 2
+                        Box.Filled = false
+                        Box.Thickness = 1
+
+                        local BoxOutline = TrackDrawing(Drawing.new("Square"))
+                        BoxOutline.Visible = false
+                        BoxOutline.Thickness = 3
+                        BoxOutline.ZIndex = 1
+                        BoxOutline.Color = Color3.fromRGB(0, 0, 0)
+                        BoxOutline.Filled = false
+
+                        local SkeletonLines = {}
+                        for i = 1, 5 do
+                            local line = TrackDrawing(Drawing.new("Line"))
+                            line.Visible = false
+                            line.Thickness = 1
+                            line.ZIndex = 3
+                            SkeletonLines[i] = line
                         end
+
+                        local HealthBG = TrackDrawing(Drawing.new("Line"))
+                        HealthBG.Visible = false
+                        HealthBG.Thickness = 4
+                        HealthBG.ZIndex = 1
+                        HealthBG.Color = Color3.fromRGB(0, 0, 0)
+
+                        local HealthFill = TrackDrawing(Drawing.new("Line"))
+                        HealthFill.Visible = false
+                        HealthFill.Thickness = 2
+                        HealthFill.ZIndex = 2
+
+                        local Highlight = Instance.new("Highlight")
+                        Highlight.Name = "MoonshineChams"
+                        Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        Highlight.Enabled = false
+                        Highlight.Parent = Character
+                        ActiveHighlights[Character] = Highlight
+
+                        local drawings = {
+                            Text = Text,
+                            Box = Box,
+                            BoxOutline = BoxOutline,
+                            Skeleton = SkeletonLines,
+                            HealthBG = HealthBG,
+                            HealthFill = HealthFill,
+                        }
+
+                        local Render = NewRender(function()
+                            if not ESPState.Enabled then
+                                HideAll(drawings, Highlight)
+                                return
+                            end
+
+                            local isSelf = Character == game.Players.LocalPlayer.Character
+                            if isSelf and not ESPState.ShowSelf then
+                                HideAll(drawings, Highlight)
+                                return
+                            end
+
+                            if not ShouldShowPlayer(Player) then
+                                HideAll(drawings, Highlight)
+                                return
+                            end
+
+                            local hrp = Character:FindFirstChild("HumanoidRootPart")
+                            if not hrp then HideAll(drawings, Highlight) return end
+                            local hum = Character:FindFirstChildOfClass("Humanoid")
+                            if not hum or hum.Health <= 0 then HideAll(drawings, Highlight) return end
+
+                            local pos, onscreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+                            if not onscreen then
+                                HideAll(drawings, Highlight)
+                                return
+                            end
+
+                            local espColor
+                            if IsWhitelisted(Player) then
+                                espColor = Color3.fromRGB(0, 255, 0)
+                            elseif ESPState.TeamColor then
+                                espColor = Player.TeamColor.Color
+                            else
+                                espColor = ESPState.Color
+                            end
+
+                            local scale = 1 / (pos.Z * math.tan(math.rad(workspace.CurrentCamera.FieldOfView * 0.5)) * 2) * 1000
+                            local width, height = math.floor(4.5 * scale), math.floor(6 * scale)
+                            local x, y = math.floor(pos.X), math.floor(pos.Y)
+                            local xPos, yPos = math.floor(x - width * 0.5), math.floor((y - height * 0.5) + (0.5 * scale))
+
+                            if ESPState.Name then
+                                Text.Position = Vector2.new(pos.X, yPos - 14)
+                                Text.Text = ESPState.InmateStatus and GetDisplayName(Character) or Character.Name
+                                Text.Color = espColor
+                                Text.Outline = ESPState.Outline
+                                Text.Visible = true
+                            else
+                                Text.Visible = false
+                            end
+
+                            if ESPState.Box then
+                                Box.Size = Vector2.new(width, height)
+                                Box.Position = Vector2.new(xPos, yPos)
+                                Box.Color = espColor
+                                Box.Visible = true
+                                BoxOutline.Size = Vector2.new(width, height)
+                                BoxOutline.Position = Vector2.new(xPos, yPos)
+                                BoxOutline.Visible = ESPState.Outline
+                            else
+                                Box.Visible = false
+                                BoxOutline.Visible = false
+                            end
+
+                            if ESPState.Skeleton then
+                                local hrpScreen = Vector2.new(pos.X, pos.Y)
+                                for i, boneName in ipairs(SKELETON_BONES) do
+                                    local bone = Character:FindFirstChild(boneName)
+                                    if bone then
+                                        local bPos, bOn = workspace.CurrentCamera:WorldToViewportPoint(bone.Position)
+                                        if bOn then
+                                            SkeletonLines[i].From = hrpScreen
+                                            SkeletonLines[i].To = Vector2.new(bPos.X, bPos.Y)
+                                            SkeletonLines[i].Color = espColor
+                                            SkeletonLines[i].Visible = true
+                                        else
+                                            SkeletonLines[i].Visible = false
+                                        end
+                                    else
+                                        SkeletonLines[i].Visible = false
+                                    end
+                                end
+                            else
+                                for i = 1, 5 do SkeletonLines[i].Visible = false end
+                            end
+
+                            if ESPState.Chams then
+                                Highlight.FillColor = ESPState.ChamsColor
+                                Highlight.OutlineColor = espColor
+                                Highlight.FillTransparency = ESPState.ChamsFillTransparency
+                                Highlight.OutlineTransparency = ESPState.ChamsOutlineTransparency
+                                Highlight.Enabled = true
+                            else
+                                Highlight.Enabled = false
+                            end
+
+                            if ESPState.HealthBar then
+                                local hpRatio = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                                local barX
+                                if ESPState.HealthBarSide == "Left" then
+                                    barX = xPos - 5
+                                else
+                                    barX = xPos + width + 5
+                                end
+                                local barTop = yPos
+                                local barBot = yPos + height
+                                local fillBot = barBot
+                                local fillTop = barBot - math.floor(height * hpRatio)
+
+                                HealthBG.From = Vector2.new(barX, barTop)
+                                HealthBG.To = Vector2.new(barX, barBot)
+                                HealthBG.Visible = true
+
+                                HealthFill.From = Vector2.new(barX, fillTop)
+                                HealthFill.To = Vector2.new(barX, fillBot)
+                                HealthFill.Color = Color3.fromRGB(255, 0, 0):Lerp(Color3.fromRGB(0, 255, 0), hpRatio)
+                                HealthFill.Visible = true
+                            else
+                                HealthBG.Visible = false
+                                HealthFill.Visible = false
+                            end
+                        end)
+
+                        Character.AncestryChanged:Connect(function(_, parent)
+                            if not parent then
+                                Render:Disconnect()
+                                Text:Destroy()
+                                Box:Destroy()
+                                BoxOutline:Destroy()
+                                for i = 1, 5 do SkeletonLines[i]:Destroy() end
+                                HealthBG:Destroy()
+                                HealthFill:Destroy()
+                                if Highlight then
+                                    ActiveHighlights[Character] = nil
+                                    Highlight:Destroy()
+                                    Highlight = nil
+                                end
+                            end
+                        end)
                     end
 
                     for _, v in pairs(game:GetService("Players"):GetPlayers()) do
-                        Apply(v.Character)
-
-                        v.CharacterAdded:Connect(function()
-                            Apply(v.Character)
+                        if v.Character then Apply(v.Character) end
+                        v.CharacterAdded:Connect(function(char)
+                            Apply(char)
                         end)
                     end
 
                     game:GetService("Players").PlayerAdded:Connect(function(v)
-                        v.CharacterAdded:Connect(function()
-                            Apply(v.Character)
+                        v.CharacterAdded:Connect(function(char)
+                            Apply(char)
                         end)
                     end)
                 end
             end
+
+            RegisterCleanup(function()
+                for char, hl in pairs(ActiveHighlights) do
+                    pcall(hl.Destroy, hl)
+                end
+                ActiveHighlights = {}
+            end)
         end
     end
 
