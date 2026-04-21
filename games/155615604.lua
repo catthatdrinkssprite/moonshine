@@ -657,24 +657,30 @@ do
                             losParams.FilterType = Enum.RaycastFilterType.Exclude
                         end
 
+                        local myTeam = LocalPlayer.Team and LocalPlayer.Team.Name or ""
+
                         for _, Player in next, GetPlayers(Players) do
                             if Player == LocalPlayer then continue end
 
                             local isBlacklisted = SilentAimState.Blacklist[Player.Name]
+                            local TeamName = Player.Team and Player.Team.Name or ""
 
-                            if not isBlacklisted then
-                                if SilentAimState.Whitelist[Player.Name] then continue end
-                                if SilentAimState.FriendCheck and FriendsCache[Player.Name] then continue end
-
-                                local TeamName = Player.Team and Player.Team.Name or ""
-                                if next(SilentAimState.Teams) and not SilentAimState.Teams[TeamName] then continue end
+                            if isBlacklisted then
+                                if TeamName == myTeam and TeamName ~= "Inmates" then continue end
                             end
 
                             local Character = Player.Character
                             if not Character then continue end
 
+                            if isBlacklisted then
+                                if TeamName == "Inmates" and GetInmateStatus(Character) == "Regular" then continue end
+                            end
+
                             if not isBlacklisted then
-                                local TeamName = Player.Team and Player.Team.Name or ""
+                                if SilentAimState.Whitelist[Player.Name] then continue end
+                                if SilentAimState.FriendCheck and FriendsCache[Player.Name] then continue end
+                                if next(SilentAimState.Teams) and not SilentAimState.Teams[TeamName] then continue end
+
                                 if TeamName == "Inmates" then
                                     local needStatus = next(SilentAimState.InmateTypes) or (checkArrestSafety and not holdingTaser)
                                     if needStatus then
@@ -1225,7 +1231,23 @@ do
             end
 
             local function ShouldShowPlayer(Player)
-                if IsBlacklisted(Player) then return true end
+                if IsBlacklisted(Player) then
+                    local myTeam = game.Players.LocalPlayer.Team
+                    local myTeamName = myTeam and myTeam.Name or ""
+                    local theirTeamName = Player.Team and Player.Team.Name or ""
+                    if theirTeamName == myTeamName and theirTeamName ~= "Inmates" then
+                        -- same non-inmate team, can't damage -- fall through to normal filters
+                    elseif theirTeamName == "Inmates" then
+                        local Character = Player.Character
+                        if Character and GetInmateStatusESP(Character) == "Regular" then
+                            -- innocent inmate, can't damage -- fall through to normal filters
+                        else
+                            return true
+                        end
+                    else
+                        return true
+                    end
+                end
                 if IsWhitelisted(Player) then
                     if ESPFilterState.WhitelistMode == "Hide ESP" then
                         return false
@@ -2877,24 +2899,30 @@ do
             local bestTarget = nil
             local bestDist = math.huge
 
+            local rbMyTeam = LocalPlayer.Team and LocalPlayer.Team.Name or ""
+
             for _, player in pairs(Players:GetPlayers()) do
                 if player == LocalPlayer then continue end
 
                 local rbBlacklisted = RBState.Blacklist[player.Name]
+                local teamName = player.Team and player.Team.Name or ""
 
-                if not rbBlacklisted then
-                    if RBState.Whitelist[player.Name] then continue end
-                    if RBState.FriendCheck and FriendsCache[player.Name] then continue end
-
-                    local teamName = player.Team and player.Team.Name or ""
-                    if next(RBState.Teams) and not RBState.Teams[teamName] then continue end
+                if rbBlacklisted then
+                    if teamName == rbMyTeam and teamName ~= "Inmates" then continue end
                 end
 
                 local character = player.Character
                 if not character then continue end
 
+                if rbBlacklisted then
+                    if teamName == "Inmates" and RBGetInmateStatus(character) == "Regular" then continue end
+                end
+
                 if not rbBlacklisted then
-                    local teamName = player.Team and player.Team.Name or ""
+                    if RBState.Whitelist[player.Name] then continue end
+                    if RBState.FriendCheck and FriendsCache[player.Name] then continue end
+                    if next(RBState.Teams) and not RBState.Teams[teamName] then continue end
+
                     if teamName == "Inmates" and next(RBState.InmateTypes) then
                         local status = RBGetInmateStatus(character)
                         if not RBState.InmateTypes[status] then continue end
