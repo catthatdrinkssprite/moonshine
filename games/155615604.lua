@@ -2039,7 +2039,7 @@ do
         }
 
         local OriginalSky = nil
-        local CustomSky = nil
+        local ManagedSky = nil
 
         do
             local sky = Lighting:FindFirstChildOfClass("Sky")
@@ -2057,6 +2057,28 @@ do
             end
         end
 
+        local SkyboxList = {}
+        local SkyboxNames = {"Default"}
+        do
+            local ok, raw = pcall(function()
+                if isfile("moonshine/skyboxes.json") then
+                    return readfile("moonshine/skyboxes.json")
+                end
+                return nil
+            end)
+            if ok and raw then
+                local decoded = game:GetService("HttpService"):JSONDecode(raw)
+                if type(decoded) == "table" then
+                    for _, entry in decoded do
+                        if entry.Name and entry.Name ~= "None" then
+                            table.insert(SkyboxList, entry)
+                            table.insert(SkyboxNames, entry.Name)
+                        end
+                    end
+                end
+            end
+        end
+
         local LightState = {
             AmbientOverride = false,
             OutdoorAmbientOverride = false,
@@ -2064,8 +2086,19 @@ do
             ClockTimeOverride = false,
             FogOverride = false,
             ColorShiftOverride = false,
-            RemoveSky = false,
+            RemoveFog = false,
+            SkyboxChoice = "Default",
             Fullbright = false,
+
+            AmbientColor = OriginalLighting.Ambient,
+            OutdoorAmbientColor = OriginalLighting.OutdoorAmbient,
+            BrightnessValue = OriginalLighting.Brightness,
+            ClockTimeValue = OriginalLighting.ClockTime,
+            FogColor = OriginalLighting.FogColor,
+            FogStart = OriginalLighting.FogStart,
+            FogEnd = math.min(OriginalLighting.FogEnd, 5000),
+            ColorShiftTop = OriginalLighting.ColorShift_Top,
+            ColorShiftBottom = OriginalLighting.ColorShift_Bottom,
         }
 
         local AmbientSection = LightingSubPage:Section({Name = "Ambient & Brightness", Side = 1}) do
@@ -2074,18 +2107,13 @@ do
                 ToolTip = { Name = "Override Ambient", Description = "Override the indoor ambient lighting color" },
                 Flag = "LightAmbientOverride",
                 Default = false,
-                Callback = function(v)
-                    LightState.AmbientOverride = v
-                    if not v then Lighting.Ambient = OriginalLighting.Ambient end
-                end
+                Callback = function(v) LightState.AmbientOverride = v end
             }):Colorpicker({
                 Name = "Ambient Color",
                 Flag = "LightAmbientColor",
                 Default = OriginalLighting.Ambient,
                 Alpha = 0,
-                Callback = function(v)
-                    if LightState.AmbientOverride then Lighting.Ambient = v end
-                end
+                Callback = function(v) LightState.AmbientColor = v end
             })
 
             AmbientSection:Toggle({
@@ -2093,18 +2121,13 @@ do
                 ToolTip = { Name = "Override Outdoor Ambient", Description = "Override the outdoor ambient lighting color" },
                 Flag = "LightOutdoorAmbientOverride",
                 Default = false,
-                Callback = function(v)
-                    LightState.OutdoorAmbientOverride = v
-                    if not v then Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient end
-                end
+                Callback = function(v) LightState.OutdoorAmbientOverride = v end
             }):Colorpicker({
                 Name = "Outdoor Ambient Color",
                 Flag = "LightOutdoorAmbientColor",
                 Default = OriginalLighting.OutdoorAmbient,
                 Alpha = 0,
-                Callback = function(v)
-                    if LightState.OutdoorAmbientOverride then Lighting.OutdoorAmbient = v end
-                end
+                Callback = function(v) LightState.OutdoorAmbientColor = v end
             })
 
             AmbientSection:Toggle({
@@ -2112,10 +2135,7 @@ do
                 ToolTip = { Name = "Override Brightness", Description = "Override the scene brightness value" },
                 Flag = "LightBrightnessOverride",
                 Default = false,
-                Callback = function(v)
-                    LightState.BrightnessOverride = v
-                    if not v then Lighting.Brightness = OriginalLighting.Brightness end
-                end
+                Callback = function(v) LightState.BrightnessOverride = v end
             })
 
             AmbientSection:Slider({
@@ -2125,9 +2145,7 @@ do
                 Min = 0,
                 Max = 10,
                 Decimals = 0.1,
-                Callback = function(v)
-                    if LightState.BrightnessOverride then Lighting.Brightness = v end
-                end
+                Callback = function(v) LightState.BrightnessValue = v end
             })
 
             AmbientSection:Toggle({
@@ -2135,30 +2153,7 @@ do
                 ToolTip = { Name = "Fullbright", Description = "Maxes out ambient and brightness so everything is fully lit with no shadows" },
                 Flag = "LightFullbright",
                 Default = false,
-                Callback = function(v)
-                    LightState.Fullbright = v
-                    if v then
-                        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-                        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
-                        Lighting.Brightness = 2
-                        Lighting.FogEnd = 1e9
-                        Lighting.FogStart = 1e9
-                        Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
-                        Lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
-                    else
-                        if not LightState.AmbientOverride then Lighting.Ambient = OriginalLighting.Ambient end
-                        if not LightState.OutdoorAmbientOverride then Lighting.OutdoorAmbient = OriginalLighting.OutdoorAmbient end
-                        if not LightState.BrightnessOverride then Lighting.Brightness = OriginalLighting.Brightness end
-                        if not LightState.FogOverride then
-                            Lighting.FogEnd = OriginalLighting.FogEnd
-                            Lighting.FogStart = OriginalLighting.FogStart
-                        end
-                        if not LightState.ColorShiftOverride then
-                            Lighting.ColorShift_Top = OriginalLighting.ColorShift_Top
-                            Lighting.ColorShift_Bottom = OriginalLighting.ColorShift_Bottom
-                        end
-                    end
-                end
+                Callback = function(v) LightState.Fullbright = v end
             })
         end
 
@@ -2168,10 +2163,7 @@ do
                 ToolTip = { Name = "Override Clock Time", Description = "Freeze the in-game time to a custom value" },
                 Flag = "LightClockTimeOverride",
                 Default = false,
-                Callback = function(v)
-                    LightState.ClockTimeOverride = v
-                    if not v then Lighting.ClockTime = OriginalLighting.ClockTime end
-                end
+                Callback = function(v) LightState.ClockTimeOverride = v end
             })
 
             TimeSection:Slider({
@@ -2182,9 +2174,7 @@ do
                 Max = 24,
                 Decimals = 0.1,
                 Suffix = "h",
-                Callback = function(v)
-                    if LightState.ClockTimeOverride then Lighting.ClockTime = v end
-                end
+                Callback = function(v) LightState.ClockTimeValue = v end
             })
         end
 
@@ -2194,22 +2184,13 @@ do
                 ToolTip = { Name = "Override Fog", Description = "Override fog distance and color" },
                 Flag = "LightFogOverride",
                 Default = false,
-                Callback = function(v)
-                    LightState.FogOverride = v
-                    if not v and not LightState.Fullbright then
-                        Lighting.FogEnd = OriginalLighting.FogEnd
-                        Lighting.FogStart = OriginalLighting.FogStart
-                        Lighting.FogColor = OriginalLighting.FogColor
-                    end
-                end
+                Callback = function(v) LightState.FogOverride = v end
             }):Colorpicker({
                 Name = "Fog Color",
                 Flag = "LightFogColor",
                 Default = OriginalLighting.FogColor,
                 Alpha = 0,
-                Callback = function(v)
-                    if LightState.FogOverride then Lighting.FogColor = v end
-                end
+                Callback = function(v) LightState.FogColor = v end
             })
 
             FogSection:Slider({
@@ -2219,9 +2200,7 @@ do
                 Min = 0,
                 Max = 5000,
                 Decimals = 1,
-                Callback = function(v)
-                    if LightState.FogOverride then Lighting.FogStart = v end
-                end
+                Callback = function(v) LightState.FogStart = v end
             })
 
             FogSection:Slider({
@@ -2231,9 +2210,7 @@ do
                 Min = 0,
                 Max = 5000,
                 Decimals = 1,
-                Callback = function(v)
-                    if LightState.FogOverride then Lighting.FogEnd = v end
-                end
+                Callback = function(v) LightState.FogEnd = v end
             })
 
             FogSection:Toggle({
@@ -2241,41 +2218,173 @@ do
                 ToolTip = { Name = "Remove Fog", Description = "Push fog distance to infinity, effectively removing it" },
                 Flag = "LightRemoveFog",
                 Default = false,
-                Callback = function(v)
-                    if v then
-                        Lighting.FogEnd = 1e9
-                        Lighting.FogStart = 1e9
-                    else
-                        if LightState.FogOverride then return end
-                        if not LightState.Fullbright then
-                            Lighting.FogEnd = OriginalLighting.FogEnd
-                            Lighting.FogStart = OriginalLighting.FogStart
-                        end
-                    end
-                end
+                Callback = function(v) LightState.RemoveFog = v end
             })
         end
 
+        local function applySkybox(data)
+            local sky = Lighting:FindFirstChildOfClass("Sky")
+            if not sky then
+                if not ManagedSky then
+                    ManagedSky = Instance.new("Sky")
+                    ManagedSky.Name = "MoonshineSky"
+                    ManagedSky.Parent = Lighting
+                end
+                sky = ManagedSky
+            end
+            sky.SkyboxBk = data.SkyboxBk
+            sky.SkyboxDn = data.SkyboxDn
+            sky.SkyboxFt = data.SkyboxFt
+            sky.SkyboxLf = data.SkyboxLf
+            sky.SkyboxRt = data.SkyboxRt
+            sky.SkyboxUp = data.SkyboxUp
+        end
+
+        local function restoreSkybox()
+            if ManagedSky then
+                ManagedSky:Destroy()
+                ManagedSky = nil
+            end
+            local sky = Lighting:FindFirstChildOfClass("Sky")
+            if sky and OriginalSky then
+                sky.SkyboxBk = OriginalSky.SkyboxBk
+                sky.SkyboxDn = OriginalSky.SkyboxDn
+                sky.SkyboxFt = OriginalSky.SkyboxFt
+                sky.SkyboxLf = OriginalSky.SkyboxLf
+                sky.SkyboxRt = OriginalSky.SkyboxRt
+                sky.SkyboxUp = OriginalSky.SkyboxUp
+            end
+        end
+
+        local CustomSkyIds = { Bk = "", Dn = "", Ft = "", Lf = "", Rt = "", Up = "" }
+
+        local function applyCustomSky()
+            local hasAny = false
+            for _, v in CustomSkyIds do
+                if v ~= "" then hasAny = true break end
+            end
+            if not hasAny then return end
+            applySkybox({
+                SkyboxBk = CustomSkyIds.Bk,
+                SkyboxDn = CustomSkyIds.Dn,
+                SkyboxFt = CustomSkyIds.Ft,
+                SkyboxLf = CustomSkyIds.Lf,
+                SkyboxRt = CustomSkyIds.Rt,
+                SkyboxUp = CustomSkyIds.Up,
+            })
+        end
+
+        local function normalizeAssetId(input)
+            input = tostring(input):match("^%s*(.-)%s*$")
+            if input == "" then return "" end
+            if input:match("^rbxasset") then return input end
+            local id = input:match("%d+")
+            if id then return "rbxassetid://" .. id end
+            return input
+        end
+
+        table.insert(SkyboxNames, "Custom")
+
         local SkySection = LightingSubPage:Section({Name = "Sky & Color Shift", Side = 2}) do
-            SkySection:Toggle({
-                Name = "Remove Skybox",
-                ToolTip = { Name = "Remove Skybox", Description = "Removes the Sky object from Lighting, showing the default Roblox sky" },
-                Flag = "LightRemoveSky",
-                Default = false,
+            SkySection:Dropdown({
+                Name = "Skybox",
+                ToolTip = { Name = "Custom Skybox", Description = "Pick a preset, or select 'Custom' and enter your own asset IDs below" },
+                Flag = "LightSkyboxChoice",
+                Default = "Default",
+                Options = SkyboxNames,
                 Callback = function(v)
-                    LightState.RemoveSky = v
-                    if v then
-                        local sky = Lighting:FindFirstChildOfClass("Sky")
-                        if sky then
-                            CustomSky = sky
-                            sky.Parent = nil
-                        end
-                    else
-                        if CustomSky then
-                            CustomSky.Parent = Lighting
-                            CustomSky = nil
-                        end
+                    LightState.SkyboxChoice = v
+                    if v == "Default" then
+                        restoreSkybox()
+                        return
                     end
+                    if v == "Custom" then
+                        applyCustomSky()
+                        return
+                    end
+                    for _, entry in SkyboxList do
+                        if entry.Name == v then applySkybox(entry) return end
+                    end
+                end
+            })
+
+            SkySection:Textbox({
+                Name = "All Faces ID",
+                ToolTip = { Name = "All Faces", Description = "Paste a single asset ID to apply to all 6 skybox faces at once. Press Enter to apply." },
+                Flag = "CustomSkyAllFaces",
+                Placeholder = "rbxassetid://...",
+                Finished = true,
+                Callback = function(v)
+                    local id = normalizeAssetId(v)
+                    if id == "" then return end
+                    for k in CustomSkyIds do CustomSkyIds[k] = id end
+                    if LightState.SkyboxChoice == "Custom" then applyCustomSky() end
+                end
+            })
+
+            SkySection:Textbox({
+                Name = "Front",
+                Flag = "CustomSkyFt",
+                Placeholder = "rbxassetid://...",
+                Finished = true,
+                Callback = function(v)
+                    CustomSkyIds.Ft = normalizeAssetId(v)
+                    if LightState.SkyboxChoice == "Custom" then applyCustomSky() end
+                end
+            })
+
+            SkySection:Textbox({
+                Name = "Back",
+                Flag = "CustomSkyBk",
+                Placeholder = "rbxassetid://...",
+                Finished = true,
+                Callback = function(v)
+                    CustomSkyIds.Bk = normalizeAssetId(v)
+                    if LightState.SkyboxChoice == "Custom" then applyCustomSky() end
+                end
+            })
+
+            SkySection:Textbox({
+                Name = "Left",
+                Flag = "CustomSkyLf",
+                Placeholder = "rbxassetid://...",
+                Finished = true,
+                Callback = function(v)
+                    CustomSkyIds.Lf = normalizeAssetId(v)
+                    if LightState.SkyboxChoice == "Custom" then applyCustomSky() end
+                end
+            })
+
+            SkySection:Textbox({
+                Name = "Right",
+                Flag = "CustomSkyRt",
+                Placeholder = "rbxassetid://...",
+                Finished = true,
+                Callback = function(v)
+                    CustomSkyIds.Rt = normalizeAssetId(v)
+                    if LightState.SkyboxChoice == "Custom" then applyCustomSky() end
+                end
+            })
+
+            SkySection:Textbox({
+                Name = "Up",
+                Flag = "CustomSkyUp",
+                Placeholder = "rbxassetid://...",
+                Finished = true,
+                Callback = function(v)
+                    CustomSkyIds.Up = normalizeAssetId(v)
+                    if LightState.SkyboxChoice == "Custom" then applyCustomSky() end
+                end
+            })
+
+            SkySection:Textbox({
+                Name = "Down",
+                Flag = "CustomSkyDn",
+                Placeholder = "rbxassetid://...",
+                Finished = true,
+                Callback = function(v)
+                    CustomSkyIds.Dn = normalizeAssetId(v)
+                    if LightState.SkyboxChoice == "Custom" then applyCustomSky() end
                 end
             })
 
@@ -2284,21 +2393,13 @@ do
                 ToolTip = { Name = "Override Color Shift", Description = "Override the top and bottom color shift tinting" },
                 Flag = "LightColorShiftOverride",
                 Default = false,
-                Callback = function(v)
-                    LightState.ColorShiftOverride = v
-                    if not v and not LightState.Fullbright then
-                        Lighting.ColorShift_Top = OriginalLighting.ColorShift_Top
-                        Lighting.ColorShift_Bottom = OriginalLighting.ColorShift_Bottom
-                    end
-                end
+                Callback = function(v) LightState.ColorShiftOverride = v end
             }):Colorpicker({
                 Name = "Top",
                 Flag = "LightColorShiftTop",
                 Default = OriginalLighting.ColorShift_Top,
                 Alpha = 0,
-                Callback = function(v)
-                    if LightState.ColorShiftOverride then Lighting.ColorShift_Top = v end
-                end
+                Callback = function(v) LightState.ColorShiftTop = v end
             })
 
             SkySection:Toggle({
@@ -2311,11 +2412,49 @@ do
                 Flag = "LightColorShiftBottom",
                 Default = OriginalLighting.ColorShift_Bottom,
                 Alpha = 0,
-                Callback = function(v)
-                    if LightState.ColorShiftOverride then Lighting.ColorShift_Bottom = v end
-                end
+                Callback = function(v) LightState.ColorShiftBottom = v end
             })
         end
+
+        NewRender(function()
+            if LightState.Fullbright then
+                Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+                Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+                Lighting.Brightness = 2
+                Lighting.FogEnd = 1e9
+                Lighting.FogStart = 1e9
+                Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
+                Lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
+                return
+            end
+
+            if LightState.AmbientOverride then
+                Lighting.Ambient = LightState.AmbientColor
+            end
+            if LightState.OutdoorAmbientOverride then
+                Lighting.OutdoorAmbient = LightState.OutdoorAmbientColor
+            end
+            if LightState.BrightnessOverride then
+                Lighting.Brightness = LightState.BrightnessValue
+            end
+            if LightState.ClockTimeOverride then
+                Lighting.ClockTime = LightState.ClockTimeValue
+            end
+
+            if LightState.RemoveFog then
+                Lighting.FogEnd = 1e9
+                Lighting.FogStart = 1e9
+            elseif LightState.FogOverride then
+                Lighting.FogStart = LightState.FogStart
+                Lighting.FogEnd = LightState.FogEnd
+                Lighting.FogColor = LightState.FogColor
+            end
+
+            if LightState.ColorShiftOverride then
+                Lighting.ColorShift_Top = LightState.ColorShiftTop
+                Lighting.ColorShift_Bottom = LightState.ColorShiftBottom
+            end
+        end)
 
         RegisterCleanup(function()
             Lighting.Ambient = OriginalLighting.Ambient
@@ -2327,10 +2466,7 @@ do
             Lighting.FogColor = OriginalLighting.FogColor
             Lighting.ColorShift_Top = OriginalLighting.ColorShift_Top
             Lighting.ColorShift_Bottom = OriginalLighting.ColorShift_Bottom
-            if CustomSky then
-                CustomSky.Parent = Lighting
-                CustomSky = nil
-            end
+            restoreSkybox()
         end)
     end
 

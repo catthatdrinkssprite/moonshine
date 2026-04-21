@@ -1,0 +1,128 @@
+[
+    {
+        "Name": "Mountains",
+        "SkyboxBk": "rbxassetid://324014980",
+        "SkyboxDn": "rbxassetid://324015477",
+        "SkyboxFt": "rbxassetid://324014995",
+        "SkyboxLf": "rbxassetid://324014679",
+        "SkyboxRt": "rbxassetid://324015013",
+        "SkyboxUp": "rbxassetid://324015409"
+    },
+    {
+        "Name": "Classic Sky",
+        "SkyboxBk": "rbxasset://sky/null_plainsky512_bk.jpg",
+        "SkyboxDn": "rbxasset://sky/null_plainsky512_dn.jpg",
+        "SkyboxFt": "rbxasset://sky/null_plainsky512_ft.jpg",
+        "SkyboxLf": "rbxasset://sky/null_plainsky512_lf.jpg",
+        "SkyboxRt": "rbxasset://sky/null_plainsky512_rt.jpg",
+        "SkyboxUp": "rbxasset://sky/null_plainsky512_up.jpg"
+    },
+    {
+        "Name": "Missing Textures",
+        "SkyboxBk": "rbxassetid://9311782401",
+        "SkyboxDn": "rbxassetid://9311782401",
+        "SkyboxFt": "rbxassetid://9311782401",
+        "SkyboxLf": "rbxassetid://9311782401",
+        "SkyboxRt": "rbxassetid://9311782401",
+        "SkyboxUp": "rbxassetid://9311782401"
+    },
+    {
+        "Name": "White",
+        "SkyboxBk": "rbxassetid://570672695",
+        "SkyboxDn": "rbxassetid://570672695",
+        "SkyboxFt": "rbxassetid://570672695",
+        "SkyboxLf": "rbxassetid://570672695",
+        "SkyboxRt": "rbxassetid://570672695",
+        "SkyboxUp": "rbxassetid://570672695"
+    },
+    {
+        "Name": "Minecraft",
+        "SkyboxBk": "rbxassetid://2403410783",
+        "SkyboxDn": "rbxassetid://2403429771",
+        "SkyboxFt": "rbxassetid://2403410783",
+        "SkyboxLf": "rbxassetid://2403410783",
+        "SkyboxRt": "rbxassetid://2403410783",
+        "SkyboxUp": "rbxassetid://2403437847"
+    },
+    {
+        "Name": "Team c00lkidd",
+        "SkyboxBk": "rbxassetid://10764744805",
+        "SkyboxDn": "rbxassetid://10764744805",
+        "SkyboxFt": "rbxassetid://10764744805",
+        "SkyboxLf": "rbxassetid://10764744805",
+        "SkyboxRt": "rbxassetid://10764744805",
+        "SkyboxUp": "rbxassetid://10764744805"
+    },
+    {
+        "Name": "Red Night",
+        "SkyboxBk": "rbxassetid://401664839",
+        "SkyboxDn": "rbxassetid://401664862",
+        "SkyboxFt": "rbxassetid://401664960",
+        "SkyboxLf": "rbxassetid://401664881",
+        "SkyboxRt": "rbxassetid://401664901",
+        "SkyboxUp": "rbxassetid://401664936"
+    },
+    {
+        "Name": "SFOTH",
+        "SkyboxBk": "rbxassetid://1012890",
+        "SkyboxDn": "rbxassetid://1012891",
+        "SkyboxFt": "rbxassetid://1012887",
+        "SkyboxLf": "rbxassetid://1012889",
+        "SkyboxRt": "rbxassetid://1012888",
+        "SkyboxUp": "rbxassetid://1014449"
+    },
+    {
+        "Name": "Fog on Water",
+        "SkyboxBk": "rbxassetid://15876597103",
+        "SkyboxDn": "rbxassetid://15876592775",
+        "SkyboxFt": "rbxassetid://15876640231",
+        "SkyboxLf": "rbxassetid://15876638420",
+        "SkyboxRt": "rbxassetid://15876595486",
+        "SkyboxUp": "rbxassetid://15876639348"
+    },
+    {
+        "Name": "Space",
+        "SkyboxBk": "rbxassetid://155441936",
+        "SkyboxDn": "rbxassetid://155441802",
+        "SkyboxFt": "rbxassetid://155441818",
+        "SkyboxLf": "rbxassetid://155441777",
+        "SkyboxRt": "rbxassetid://155441874",
+        "SkyboxUp": "rbxassetid://155441905"
+    },
+    {
+        "Name": "Black",
+        "SkyboxBk": "rbxassetid://156311666",
+        "SkyboxDn": "rbxassetid://156311666",
+        "SkyboxFt": "rbxassetid://156311666",
+        "SkyboxLf": "rbxassetid://156311666",
+        "SkyboxRt": "rbxassetid://156311666",
+        "SkyboxUp": "rbxassetid://156311666"
+    },
+    {
+        "Name": "Night",
+        "SkyboxBk": "rbxassetid://5346760450",
+        "SkyboxDn": "rbxassetid://5346760689",
+        "SkyboxFt": "rbxassetid://5346760919",
+        "SkyboxLf": "rbxassetid://5346761102",
+        "SkyboxRt": "rbxassetid://5346761335",
+        "SkyboxUp": "rbxassetid://5346761509"
+    },
+    {
+        "Name": "Sunset",
+        "SkyboxBk": "rbxassetid://458016711",
+        "SkyboxDn": "rbxassetid://458016826",
+        "SkyboxFt": "rbxassetid://458016532",
+        "SkyboxLf": "rbxassetid://458016655",
+        "SkyboxRt": "rbxassetid://458016782",
+        "SkyboxUp": "rbxassetid://458016792"
+    },
+    {
+        "Name": "Old Red",
+        "SkyboxBk": "rbxassetid://108929045660200",
+        "SkyboxDn": "rbxassetid://78646480540009",
+        "SkyboxFt": "rbxassetid://90546017435179",
+        "SkyboxLf": "rbxassetid://109838453114563",
+        "SkyboxRt": "rbxassetid://94190734796082",
+        "SkyboxUp": "rbxassetid://126944775797063"
+    }
+]

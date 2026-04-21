@@ -37,6 +37,7 @@ local Assets = {
     ["moonshine/sounds/neverlose.mp3"]      = "moonshine/sounds/neverlose.mp3",
     ["moonshine/sounds/rust.mp3"]           = "moonshine/sounds/rust.mp3",
     ["moonshine/sounds/skeet.mp3"]          = "moonshine/sounds/skeet.mp3",
+    ["moonshine/skyboxes.json"]              = "moonshine/skyboxes.json",
 }
 
 for _, folder in Folders do
