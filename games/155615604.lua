@@ -1292,6 +1292,9 @@ do
             }
 
             local ActiveHighlights = {}
+            local ChamsFolder = Instance.new("Folder")
+            ChamsFolder.Name = "MoonshineChams"
+            ChamsFolder.Parent = game:GetService("CoreGui")
 
             local ESPSection = ESPSubPage:Section({Name = "ESP", Side = 2}) do
                 ESPSection:Toggle({
@@ -1354,7 +1357,7 @@ do
                     Default = 0.75,
                     Min = 0,
                     Max = 1,
-                    Decimals = 2,
+                    Decimals = 0.01,
                     Callback = function(v) ESPState.ChamsFillTransparency = v end
                 })
 
@@ -1459,10 +1462,11 @@ do
                         HealthFill.ZIndex = 2
 
                         local Highlight = Instance.new("Highlight")
-                        Highlight.Name = "MoonshineChams"
+                        Highlight.Name = Player.Name
+                        Highlight.Adornee = Character
                         Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                         Highlight.Enabled = false
-                        Highlight.Parent = Character
+                        Highlight.Parent = ChamsFolder
                         ActiveHighlights[Character] = Highlight
 
                         local drawings = {
@@ -1636,6 +1640,7 @@ do
                     pcall(hl.Destroy, hl)
                 end
                 ActiveHighlights = {}
+                pcall(ChamsFolder.Destroy, ChamsFolder)
             end)
         end
     end
