@@ -396,7 +396,7 @@ do
                     Flag = "SilentAimBone",
                     Default = SilentAimState.Bone,
                     Multi = false,
-                    Items = {"Head", "HumanoidRootPart"},
+                    Items = {"Head", "HumanoidRootPart", "Random"},
                     Callback = function(v) SilentAimState.Bone = v end
                 })
 
@@ -570,12 +570,12 @@ do
                         return "Regular"
                     end
 
-                    local function IsPlayerVisible(Player)
+                    local function IsPlayerVisible(Player, BoneName)
                         local PlayerCharacter = Player.Character
                         local LocalPlayerCharacter = LocalPlayer.Character
                         if not (PlayerCharacter and LocalPlayerCharacter) then return false end
 
-                        local TargetPart = FindFirstChild(PlayerCharacter, SilentAimState.Bone) or FindFirstChild(PlayerCharacter, "HumanoidRootPart")
+                        local TargetPart = FindFirstChild(PlayerCharacter, BoneName) or FindFirstChild(PlayerCharacter, "HumanoidRootPart")
                         if not TargetPart then return false end
 
                         return #GetPartsObscuringTarget(Camera, {TargetPart.Position}, {LocalPlayerCharacter, PlayerCharacter}) == 0
@@ -593,7 +593,9 @@ do
                         local Closest = nil
                         local ClosestDist = nil
                         local MousePos = getMousePosition()
-                        local BoneName = SilentAimState.Bone
+                        local RawBone = SilentAimState.Bone
+                        local IsRandomBone = RawBone == "Random"
+                        local BoneName = IsRandomBone and "Head" or RawBone
 
                         local checkArrestSafety = SilentAimState.ArrestSafety
                         local checkMuzzleLOS = SilentAimState.MuzzleLOS
@@ -647,10 +649,12 @@ do
                             local HumanoidRootPart = FindFirstChild(Character, "HumanoidRootPart")
                             if not HumanoidRootPart then continue end
 
-                            if SilentAimState.WallCheck and not IsPlayerVisible(Player) then continue end
+                            local resolvedBone = IsRandomBone and (math.random() > 0.5 and "Head" or "HumanoidRootPart") or BoneName
+
+                            if SilentAimState.WallCheck and not IsPlayerVisible(Player, resolvedBone) then continue end
 
                             if muzzleOrigin then
-                                local targetBone = FindFirstChild(Character, BoneName) or HumanoidRootPart
+                                local targetBone = FindFirstChild(Character, resolvedBone) or HumanoidRootPart
                                 losParams.FilterDescendantsInstances = {LocalCharacter, Character}
                                 if workspace:Raycast(muzzleOrigin, targetBone.Position - muzzleOrigin, losParams) then continue end
                             end
@@ -660,7 +664,7 @@ do
 
                             local Distance = (MousePos - Vector2.new(ScreenPos.X, ScreenPos.Y)).Magnitude
                             if Distance <= (ClosestDist or SilentAimState.Radius) then
-                                Closest = FindFirstChild(Character, BoneName) or HumanoidRootPart
+                                Closest = FindFirstChild(Character, resolvedBone) or HumanoidRootPart
                                 ClosestDist = Distance
                             end
                         end
@@ -2412,20 +2416,23 @@ do
 
         local RBLastFireTick = 0
         local RBSwitchCooldown = 0
+        local RBPhase = "fight"
+        local RBReloadQueue = {}
+        local RBReloadIndex = 0
+
+        local function RBIsGun(tool)
+            return tool:IsA("Tool") and tool:GetAttribute("ToolType") == "Gun"
+        end
 
         local function RBGetAllGuns()
             local guns = {}
             for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
-                if tool:IsA("Tool") and tool:GetAttribute("ToolType") == "Gun" then
-                    table.insert(guns, tool)
-                end
+                if RBIsGun(tool) then table.insert(guns, tool) end
             end
             local char = LocalPlayer.Character
             if char then
                 for _, tool in pairs(char:GetChildren()) do
-                    if tool:IsA("Tool") and tool:GetAttribute("ToolType") == "Gun" then
-                        table.insert(guns, tool)
-                    end
+                    if RBIsGun(tool) then table.insert(guns, tool) end
                 end
             end
             return guns
@@ -2435,11 +2442,26 @@ do
             local char = LocalPlayer.Character
             if not char then return nil end
             for _, tool in pairs(char:GetChildren()) do
-                if tool:IsA("Tool") and tool:GetAttribute("ToolType") == "Gun" then
-                    return tool
+                if RBIsGun(tool) then return tool end
+            end
+            return nil
+        end
+
+        local function RBFindGunWithAmmo(exclude)
+            local guns = RBGetAllGuns()
+            for _, gun in pairs(guns) do
+                if gun ~= exclude and (gun:GetAttribute("CurrentAmmo") or 0) > 0 then
+                    return gun
                 end
             end
             return nil
+        end
+
+        local function RBAllGunsEmpty()
+            for _, gun in pairs(RBGetAllGuns()) do
+                if (gun:GetAttribute("CurrentAmmo") or 0) > 0 then return false end
+            end
+            return true
         end
 
         local function RBGetMuzzlePosition(tool)
@@ -2496,7 +2518,8 @@ do
                 if RBState.DeathCheck and (not humanoid or humanoid.Health <= 0) then continue end
                 if RBState.ForceFieldCheck and character:FindFirstChild("ForceField") then continue end
 
-                local targetPart = character:FindFirstChild(RBState.TargetBone) or character:FindFirstChild("HumanoidRootPart")
+                local bone = RBState.TargetBone == "Random" and (math.random() > 0.5 and "Head" or "HumanoidRootPart") or RBState.TargetBone
+                local targetPart = character:FindFirstChild(bone) or character:FindFirstChild("HumanoidRootPart")
                 if not targetPart then continue end
 
                 local dist = (muzzlePos - targetPart.Position).Magnitude
@@ -2555,7 +2578,7 @@ do
             Flag = "RagebotTargetBone",
             Default = "HumanoidRootPart",
             Multi = false,
-            Items = {"Head", "HumanoidRootPart"},
+            Items = {"Head", "HumanoidRootPart", "Random"},
             Callback = function(v) RBState.TargetBone = v end
         })
 
@@ -2642,6 +2665,7 @@ do
             if not RBState.Enabled then
                 RagebotForcedTarget = nil
                 RagebotMuzzleOrigin = nil
+                RBPhase = "fight"
                 return
             end
 
@@ -2658,53 +2682,83 @@ do
                 return
             end
 
-            local equippedGun = RBGetEquippedGun()
             local now = tick()
 
-            if RBState.AutoSwitch and (now - RBSwitchCooldown) > 0.15 then
-                if not equippedGun then
-                    local guns = RBGetAllGuns()
-                    for _, gun in pairs(guns) do
-                        local ammo = gun:GetAttribute("CurrentAmmo") or 0
-                        if ammo > 0 then
-                            humanoid:EquipTool(gun)
-                            RBSwitchCooldown = now
-                            equippedGun = gun
-                            break
-                        end
-                    end
-                elseif (equippedGun:GetAttribute("CurrentAmmo") or 0) <= 0 then
-                    local stored = equippedGun:GetAttribute("StoredAmmo") or 0
-                    if RBState.AutoReload and stored > 0 and not equippedGun:GetAttribute("IsReloading") then
-                        keypress(0x52)
-                        task.defer(keyrelease, 0x52)
-                        return
-                    end
-
-                    if stored <= 0 then
-                        local guns = RBGetAllGuns()
-                        for _, gun in pairs(guns) do
-                            if gun == equippedGun then continue end
-                            local ammo = gun:GetAttribute("CurrentAmmo") or 0
-                            if ammo > 0 then
-                                humanoid:EquipTool(gun)
-                                RBSwitchCooldown = now
-                                equippedGun = gun
-                                break
-                            end
-                        end
-                    end
-                end
-            end
-
-            if not equippedGun then
+            if RBPhase == "reload" then
                 RagebotForcedTarget = nil
                 RagebotMuzzleOrigin = nil
+
+                if RBReloadIndex > #RBReloadQueue then
+                    RBPhase = "fight"
+                    RBReloadQueue = {}
+                    RBReloadIndex = 0
+                    return
+                end
+
+                local gun = RBReloadQueue[RBReloadIndex]
+                if not gun or not gun.Parent then
+                    RBReloadIndex = RBReloadIndex + 1
+                    return
+                end
+
+                local equipped = RBGetEquippedGun()
+                if equipped ~= gun then
+                    if (now - RBSwitchCooldown) > 0.15 then
+                        humanoid:EquipTool(gun)
+                        RBSwitchCooldown = now
+                    end
+                    return
+                end
+
+                if gun:GetAttribute("IsReloading") then
+                    return
+                end
+
+                local current = gun:GetAttribute("CurrentAmmo") or 0
+                local stored = gun:GetAttribute("StoredAmmo") or 0
+
+                if current > 0 then
+                    RBReloadIndex = RBReloadIndex + 1
+                    return
+                end
+
+                if stored > 0 then
+                    keypress(0x52)
+                    task.defer(keyrelease, 0x52)
+                    return
+                end
+
+                RBReloadIndex = RBReloadIndex + 1
                 return
             end
 
-            local ammo = equippedGun:GetAttribute("CurrentAmmo") or 0
-            if ammo <= 0 then
+            local equippedGun = RBGetEquippedGun()
+
+            if not equippedGun or (equippedGun:GetAttribute("CurrentAmmo") or 0) <= 0 then
+                local next = RBFindGunWithAmmo(equippedGun)
+                if next then
+                    if (now - RBSwitchCooldown) > 0.15 then
+                        humanoid:EquipTool(next)
+                        RBSwitchCooldown = now
+                    end
+                    RagebotForcedTarget = nil
+                    RagebotMuzzleOrigin = nil
+                    return
+                end
+
+                if RBState.AutoReload and RBAllGunsEmpty() then
+                    RBReloadQueue = {}
+                    for _, gun in pairs(RBGetAllGuns()) do
+                        if (gun:GetAttribute("StoredAmmo") or 0) > 0 then
+                            table.insert(RBReloadQueue, gun)
+                        end
+                    end
+                    if #RBReloadQueue > 0 then
+                        RBPhase = "reload"
+                        RBReloadIndex = 1
+                    end
+                end
+
                 RagebotForcedTarget = nil
                 RagebotMuzzleOrigin = nil
                 return
