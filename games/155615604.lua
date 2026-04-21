@@ -19,28 +19,6 @@ do
     local BlatantPage = Window:Page({Name = "Blatant", Columns = 2})
     local SettingsPage = Library:CreateSettingsPage(Window, Watermark, KeybindList)
 
-    local FriendsCache = {}
-    do
-        local LP = game:GetService("Players").LocalPlayer
-        for _, p in pairs(game:GetService("Players"):GetPlayers()) do
-            if p ~= LP then
-                task.spawn(function()
-                    local ok, result = pcall(LP.IsFriendsWith, LP, p.UserId)
-                    if ok then FriendsCache[p.Name] = result end
-                end)
-            end
-        end
-        TrackConnection(game:GetService("Players").PlayerAdded:Connect(function(p)
-            task.spawn(function()
-                local ok, result = pcall(LP.IsFriendsWith, LP, p.UserId)
-                if ok then FriendsCache[p.Name] = result end
-            end)
-        end))
-        TrackConnection(game:GetService("Players").PlayerRemoving:Connect(function(p)
-            FriendsCache[p.Name] = nil
-        end))
-    end
-
     local RagebotForcedTarget = nil
     local RagebotMuzzleOrigin = nil
 
@@ -63,6 +41,28 @@ do
     local function TrackConnection(conn)
         table.insert(TrackedConnections, conn)
         return conn
+    end
+
+    local FriendsCache = {}
+    do
+        local LP = game:GetService("Players").LocalPlayer
+        for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+            if p ~= LP then
+                task.spawn(function()
+                    local ok, result = pcall(LP.IsFriendsWith, LP, p.UserId)
+                    if ok then FriendsCache[p.Name] = result end
+                end)
+            end
+        end
+        TrackConnection(game:GetService("Players").PlayerAdded:Connect(function(p)
+            task.spawn(function()
+                local ok, result = pcall(LP.IsFriendsWith, LP, p.UserId)
+                if ok then FriendsCache[p.Name] = result end
+            end)
+        end))
+        TrackConnection(game:GetService("Players").PlayerRemoving:Connect(function(p)
+            FriendsCache[p.Name] = nil
+        end))
     end
 
     local function NewRender(Callback)
