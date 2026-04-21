@@ -1,8 +1,10 @@
 <div align='center'>
 
-# 🌙 moonshine
+---
 
-a fully opensource script for roblox
+![moonshine](moonshine/images/cover.png)
+
+---
 
 ## 🎮 supported games
 | game name | place id | lines of code |
