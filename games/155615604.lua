@@ -299,7 +299,8 @@ do
                     InmateTypes = {},
                     DeathCheck = true,
                     FriendCheck = false,
-                    Whitelist = {}
+                    Whitelist = {},
+                    Blacklist = {},
                 }
 
                 local Camera = workspace.CurrentCamera
@@ -518,11 +519,26 @@ do
                         end
                     })
 
+                    local SABlacklistDropdown = SilentAimSection:Dropdown({
+                        Name = "Blacklist",
+                        ToolTip = { Name = "Blacklist", Description = "Always target these players regardless of team, inmate status, or arrest safety filters" },
+                        Flag = "SilentAimBlacklist",
+                        Multi = true,
+                        Items = saPlayerNames,
+                        Callback = function(v)
+                            local set = {}
+                            for _, name in pairs(v) do set[name] = true end
+                            SilentAimState.Blacklist = set
+                        end
+                    })
+
                     game:GetService("Players").PlayerAdded:Connect(function(p)
                         SAWhitelistDropdown:Add(p.Name)
+                        SABlacklistDropdown:Add(p.Name)
                     end)
                     game:GetService("Players").PlayerRemoving:Connect(function(p)
                         SAWhitelistDropdown:Remove(p.Name)
+                        SABlacklistDropdown:Remove(p.Name)
                     end)
                 end do
                     local FoVCircle = TrackDrawing(Drawing.new("Circle"))
@@ -643,21 +659,29 @@ do
 
                         for _, Player in next, GetPlayers(Players) do
                             if Player == LocalPlayer then continue end
-                            if SilentAimState.Whitelist[Player.Name] then continue end
-                            if SilentAimState.FriendCheck and FriendsCache[Player.Name] then continue end
 
-                            local TeamName = Player.Team and Player.Team.Name or ""
-                            if next(SilentAimState.Teams) and not SilentAimState.Teams[TeamName] then continue end
+                            local isBlacklisted = SilentAimState.Blacklist[Player.Name]
+
+                            if not isBlacklisted then
+                                if SilentAimState.Whitelist[Player.Name] then continue end
+                                if SilentAimState.FriendCheck and FriendsCache[Player.Name] then continue end
+
+                                local TeamName = Player.Team and Player.Team.Name or ""
+                                if next(SilentAimState.Teams) and not SilentAimState.Teams[TeamName] then continue end
+                            end
 
                             local Character = Player.Character
                             if not Character then continue end
 
-                            if TeamName == "Inmates" then
-                                local needStatus = next(SilentAimState.InmateTypes) or (checkArrestSafety and not holdingTaser)
-                                if needStatus then
-                                    local Status = GetInmateStatus(Character)
-                                    if next(SilentAimState.InmateTypes) and not SilentAimState.InmateTypes[Status] then continue end
-                                    if checkArrestSafety and not holdingTaser and Status == "Arrestable" then continue end
+                            if not isBlacklisted then
+                                local TeamName = Player.Team and Player.Team.Name or ""
+                                if TeamName == "Inmates" then
+                                    local needStatus = next(SilentAimState.InmateTypes) or (checkArrestSafety and not holdingTaser)
+                                    if needStatus then
+                                        local Status = GetInmateStatus(Character)
+                                        if next(SilentAimState.InmateTypes) and not SilentAimState.InmateTypes[Status] then continue end
+                                        if checkArrestSafety and not holdingTaser and Status == "Arrestable" then continue end
+                                    end
                                 end
                             end
 
@@ -1173,6 +1197,7 @@ do
                 Teams = {},
                 InmateTypes = {},
                 Whitelist = {},
+                Blacklist = {},
                 FriendCheck = false,
                 WhitelistMode = "Hide ESP"
             }
@@ -1195,7 +1220,12 @@ do
                 return false
             end
 
+            local function IsBlacklisted(Player)
+                return ESPFilterState.Blacklist[Player.Name] == true
+            end
+
             local function ShouldShowPlayer(Player)
+                if IsBlacklisted(Player) then return true end
                 if IsWhitelisted(Player) then
                     if ESPFilterState.WhitelistMode == "Hide ESP" then
                         return false
@@ -1288,11 +1318,26 @@ do
                     end
                 })
 
+                local ESPBlacklistDropdown = ESPFilters:Dropdown({
+                    Name = "Blacklist",
+                    ToolTip = { Name = "Blacklist", Description = "Always show these players on ESP with criminal color, regardless of team or filter settings" },
+                    Flag = "ESPBlacklist",
+                    Multi = true,
+                    Items = playerNames,
+                    Callback = function(v)
+                        local set = {}
+                        for _, name in pairs(v) do set[name] = true end
+                        ESPFilterState.Blacklist = set
+                    end
+                })
+
                 game:GetService("Players").PlayerAdded:Connect(function(p)
                     WhitelistDropdown:Add(p.Name)
+                    ESPBlacklistDropdown:Add(p.Name)
                 end)
                 game:GetService("Players").PlayerRemoving:Connect(function(p)
                     WhitelistDropdown:Remove(p.Name)
+                    ESPBlacklistDropdown:Remove(p.Name)
                 end)
 
                 ESPFilters:Dropdown({
@@ -1545,7 +1590,9 @@ do
                             end
 
                             local espColor
-                            if IsWhitelisted(Player) then
+                            if IsBlacklisted(Player) then
+                                espColor = Color3.fromRGB(255, 0, 0)
+                            elseif IsWhitelisted(Player) then
                                 espColor = Color3.fromRGB(0, 255, 0)
                             elseif ESPState.TeamColor then
                                 espColor = Player.TeamColor.Color
@@ -2703,6 +2750,7 @@ do
             ForceFieldCheck = true,
             FriendCheck = false,
             Whitelist = {},
+            Blacklist = {},
         }
 
         local RBLastFireTick = 0
@@ -2831,18 +2879,26 @@ do
 
             for _, player in pairs(Players:GetPlayers()) do
                 if player == LocalPlayer then continue end
-                if RBState.Whitelist[player.Name] then continue end
-                if RBState.FriendCheck and FriendsCache[player.Name] then continue end
 
-                local teamName = player.Team and player.Team.Name or ""
-                if next(RBState.Teams) and not RBState.Teams[teamName] then continue end
+                local rbBlacklisted = RBState.Blacklist[player.Name]
+
+                if not rbBlacklisted then
+                    if RBState.Whitelist[player.Name] then continue end
+                    if RBState.FriendCheck and FriendsCache[player.Name] then continue end
+
+                    local teamName = player.Team and player.Team.Name or ""
+                    if next(RBState.Teams) and not RBState.Teams[teamName] then continue end
+                end
 
                 local character = player.Character
                 if not character then continue end
 
-                if teamName == "Inmates" and next(RBState.InmateTypes) then
-                    local status = RBGetInmateStatus(character)
-                    if not RBState.InmateTypes[status] then continue end
+                if not rbBlacklisted then
+                    local teamName = player.Team and player.Team.Name or ""
+                    if teamName == "Inmates" and next(RBState.InmateTypes) then
+                        local status = RBGetInmateStatus(character)
+                        if not RBState.InmateTypes[status] then continue end
+                    end
                 end
 
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -2989,8 +3045,27 @@ do
             end
         })
 
-        Players.PlayerAdded:Connect(function(p) RBWhitelistDropdown:Add(p.Name) end)
-        Players.PlayerRemoving:Connect(function(p) RBWhitelistDropdown:Remove(p.Name) end)
+        local RBBlacklistDropdown = RagebotConfigSection:Dropdown({
+            Name = "Blacklist",
+            ToolTip = { Name = "Blacklist", Description = "Always target these players regardless of team, inmate status, or other filters" },
+            Flag = "RagebotBlacklist",
+            Multi = true,
+            Items = rbPlayerNames,
+            Callback = function(v)
+                local set = {}
+                for _, name in pairs(v) do set[name] = true end
+                RBState.Blacklist = set
+            end
+        })
+
+        Players.PlayerAdded:Connect(function(p)
+            RBWhitelistDropdown:Add(p.Name)
+            RBBlacklistDropdown:Add(p.Name)
+        end)
+        Players.PlayerRemoving:Connect(function(p)
+            RBWhitelistDropdown:Remove(p.Name)
+            RBBlacklistDropdown:Remove(p.Name)
+        end)
 
         NewRender(function()
             if not RBState.Enabled then
