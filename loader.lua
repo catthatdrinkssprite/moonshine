@@ -18,6 +18,7 @@ local Folders = {
 }
 
 local Assets = {
+    ["moonshine/images/cover.png"]           = "moonshine/images/cover.png",
     ["moonshine/images/moon.png"]           = "moonshine/images/moon.png",
     ["moonshine/images/W AZULA.png"]        = "moonshine/images/W%20AZULA.png",
     ["moonshine/txts/W AZULA.txt"]          = "moonshine/txts/W%20AZULA.txt",
