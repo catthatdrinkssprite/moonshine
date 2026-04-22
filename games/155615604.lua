@@ -95,7 +95,6 @@ do
     local SharedPickupItems = {}
     local SharedPickupItemESPState = {
         Enabled = false,
-        MaxDistance = 120,
         Color = Library.Theme.Accent,
     }
     local SharedPickupItemDrawings = {}
@@ -1903,16 +1902,6 @@ do
                     Callback = function(v) SharedPickupItemESPState.Color = v end
                 })
 
-                ItemESPSection:Slider({
-                    Name = "Max Distance",
-                    Flag = "VisualPickupItemESPMaxDistance",
-                    Min = 20,
-                    Max = 500,
-                    Default = 120,
-                    Suffix = " studs",
-                    Decimals = 1,
-                    Callback = function(v) SharedPickupItemESPState.MaxDistance = v end
-                })
             end
                 end
             end
@@ -2945,7 +2934,6 @@ do
                     if not part then continue end
 
                     local distance = (myPos - part.Position).Magnitude
-                    if distance > SharedPickupItemESPState.MaxDistance then continue end
 
                     local screenPos, onScreen = camera:WorldToViewportPoint(part.Position + Vector3.new(0, 1.2, 0))
                     if not onScreen then continue end
