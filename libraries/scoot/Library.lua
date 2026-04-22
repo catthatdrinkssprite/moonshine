@@ -5121,6 +5121,185 @@ local Library do
         end)
     end
 
+    Library.LoadingPopup = function(self, Data)
+        Data = Data or {}
+        local Camera = Workspace.CurrentCamera
+
+        local Popup = {
+            IsOpen = true,
+            Progress = 0,
+        }
+
+        local Items = {} do
+            Items["Overlay"] = Instances:Create("Frame", {
+                Parent = Library.Holder.Instance,
+                Name = "\0",
+                Size = UDim2New(1, 0, 1, 0),
+                BackgroundColor3 = FromRGB(0, 0, 0),
+                BackgroundTransparency = 0.4,
+                BorderSizePixel = 0,
+                ZIndex = 9998,
+            })
+
+            Items["Container"] = Instances:Create("Frame", {
+                Parent = Library.Holder.Instance,
+                Name = "\0",
+                AnchorPoint = Vector2New(0.5, 0.5),
+                Position = UDim2New(0.5, 0, 0.5, 0),
+                Size = UDim2New(0, 280, 0, 190),
+                BorderColor3 = FromRGB(12, 12, 12),
+                BorderSizePixel = 2,
+                BackgroundColor3 = FromRGB(14, 17, 15),
+                ZIndex = 9999,
+            })  Items["Container"]:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
+
+            Items["Stroke"] = Instances:Create("UIStroke", {
+                Parent = Items["Container"].Instance,
+                Name = "\0",
+                Color = FromRGB(42, 49, 45),
+                LineJoinMode = Enum.LineJoinMode.Miter,
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            })  Items["Stroke"]:AddToTheme({Color = "Outline"})
+
+            if Data.Logo and Data.Logo ~= "" then
+                Items["Logo"] = Instances:Create("ImageLabel", {
+                    Parent = Items["Container"].Instance,
+                    Name = "\0",
+                    ImageColor3 = FromRGB(202, 243, 255),
+                    ScaleType = Enum.ScaleType.Fit,
+                    AnchorPoint = Vector2New(0.5, 0),
+                    Image = Data.Logo,
+                    BackgroundTransparency = 1,
+                    Position = UDim2New(0.5, 0, 0, 20),
+                    Size = UDim2New(0, 60, 0, 60),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = FromRGB(255, 255, 255),
+                    ZIndex = 10000,
+                })  Items["Logo"]:AddToTheme({ImageColor3 = "Accent"})
+            end
+
+            Items["Status"] = Instances:Create("TextLabel", {
+                Parent = Items["Container"].Instance,
+                Name = "\0",
+                FontFace = Library.Font,
+                TextColor3 = FromRGB(235, 235, 235),
+                Text = Data.Status or "Loading...",
+                BackgroundTransparency = 1,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                AnchorPoint = Vector2New(0.5, 0),
+                Position = UDim2New(0.5, 0, 0, 95),
+                Size = UDim2New(1, -20, 0, 20),
+                BorderSizePixel = 0,
+                TextSize = 9,
+                BackgroundColor3 = FromRGB(255, 255, 255),
+                ZIndex = 10000,
+            })  Items["Status"]:AddToTheme({TextColor3 = "Text"})
+
+            Items["StatusStroke"] = Items["Status"]:TextBorder()
+
+            Items["BarOuter"] = Instances:Create("Frame", {
+                Parent = Items["Container"].Instance,
+                Name = "\0",
+                AnchorPoint = Vector2New(0.5, 0),
+                Position = UDim2New(0.5, 0, 0, 125),
+                Size = UDim2New(0, 220, 0, 4),
+                BorderColor3 = FromRGB(42, 49, 45),
+                BorderSizePixel = 1,
+                BackgroundColor3 = FromRGB(20, 24, 21),
+                ZIndex = 10000,
+            })  Items["BarOuter"]:AddToTheme({BackgroundColor3 = "Inline", BorderColor3 = "Outline"})
+
+            Items["BarFill"] = Instances:Create("Frame", {
+                Parent = Items["BarOuter"].Instance,
+                Name = "\0",
+                Size = UDim2New(0, 0, 1, 0),
+                BorderSizePixel = 0,
+                BackgroundColor3 = FromRGB(202, 243, 255),
+                ZIndex = 10001,
+            })  Items["BarFill"]:AddToTheme({BackgroundColor3 = "Accent"})
+
+            Items["Percent"] = Instances:Create("TextLabel", {
+                Parent = Items["Container"].Instance,
+                Name = "\0",
+                FontFace = Library.Font,
+                TextColor3 = FromRGB(235, 235, 235),
+                TextTransparency = 0.4,
+                Text = "0%",
+                BackgroundTransparency = 1,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                AnchorPoint = Vector2New(0.5, 0),
+                Position = UDim2New(0.5, 0, 0, 138),
+                Size = UDim2New(1, -20, 0, 16),
+                BorderSizePixel = 0,
+                TextSize = 9,
+                BackgroundColor3 = FromRGB(255, 255, 255),
+                ZIndex = 10000,
+            })  Items["Percent"]:AddToTheme({TextColor3 = "Text"})
+
+            Items["PercentStroke"] = Items["Percent"]:TextBorder()
+
+            Items["Liner"] = Instances:Create("Frame", {
+                Parent = Items["Container"].Instance,
+                Name = "\0",
+                AnchorPoint = Vector2New(0.5, 1),
+                Position = UDim2New(0.5, 0, 1, -8),
+                Size = UDim2New(1, -20, 0, 1),
+                BorderSizePixel = 0,
+                BackgroundColor3 = FromRGB(202, 243, 255),
+                ZIndex = 10000,
+            })  Items["Liner"]:AddToTheme({BackgroundColor3 = "Accent"})
+        end
+
+        function Popup:SetStatus(text)
+            if Items["Status"] and Items["Status"].Instance then
+                Items["Status"].Instance.Text = text
+            end
+        end
+
+        function Popup:SetProgress(fraction)
+            fraction = MathClamp(fraction, 0, 1)
+            Popup.Progress = fraction
+            if Items["BarFill"] and Items["BarFill"].Instance then
+                Items["BarFill"]:Tween(
+                    TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                    {Size = UDim2New(fraction, 0, 1, 0)}
+                )
+            end
+            if Items["Percent"] and Items["Percent"].Instance then
+                Items["Percent"].Instance.Text = MathFloor(fraction * 100) .. "%"
+            end
+        end
+
+        function Popup:Dismiss()
+            if not Popup.IsOpen then return end
+            Popup.IsOpen = false
+
+            for _, Value in Items do
+                if Value and Value.Instance then
+                    if Value.Instance:IsA("Frame") then
+                        Value:Tween(nil, {BackgroundTransparency = 1})
+                    elseif Value.Instance:IsA("TextLabel") then
+                        Value:Tween(nil, {TextTransparency = 1})
+                    elseif Value.Instance:IsA("ImageLabel") then
+                        Value:Tween(nil, {ImageTransparency = 1})
+                    elseif Value.Instance:IsA("UIStroke") then
+                        Value:Tween(nil, {Transparency = 1})
+                    end
+                end
+            end
+
+            task.delay(Library.Tween.Time + 0.1, function()
+                for _, Value in Items do
+                    if Value and Value.Instance then
+                        pcall(function() Value.Instance:Destroy() end)
+                    end
+                end
+            end)
+        end
+
+        return Popup
+    end
+
     Library.Window = function(self, Data)
         Data = Data or { }
 

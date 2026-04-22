@@ -46,24 +46,47 @@ for _, folder in Folders do
     end
 end
 
+local Library = loadstring(game:HttpGet(BASE_URL .. "/libraries/scoot/Library.lua", true))()
+
+local logoPath = "moonshine/images/moon.png"
+local logoImage = isfile(logoPath) and getcustomasset(logoPath) or ""
+
+local Popup = Library:LoadingPopup({
+    Logo = logoImage,
+    Status = "Initializing...",
+})
+
+local AssetKeys = {}
+for k in Assets do
+    table.insert(AssetKeys, k)
+end
+local TotalAssets = #AssetKeys
 local FailedAssets = {}
 
-for localPath, remotePath in Assets do
+for i, localPath in AssetKeys do
     if not isfile(localPath) then
-        local ok, data = pcall(game.HttpGet, game, BASE_URL .. "/" .. remotePath, true)
+        local shortName = string.match(localPath, "[^/]+$") or localPath
+        Popup:SetStatus("Downloading " .. shortName)
+        Popup:SetProgress(i / TotalAssets)
+
+        local ok, data = pcall(game.HttpGet, game, BASE_URL .. "/" .. Assets[localPath], true)
         if ok then
             writefile(localPath, data)
         else
             table.insert(FailedAssets, localPath)
         end
+    else
+        Popup:SetProgress(i / TotalAssets)
     end
 end
 
-local Library = loadstring(game:HttpGet(BASE_URL .. "/libraries/scoot/Library.lua", true))()
+Popup:SetProgress(1)
 
 if #FailedAssets > 0 then
     Library:Notification("Download Failed.", "Could not download: " .. table.concat(FailedAssets, ", "), 8)
 end
+
+Popup:SetStatus("Checking compatibility...")
 
 local RequiredFunctions = {
     "hookmetamethod", "newcclosure", "getnamecallmethod",
@@ -79,17 +102,24 @@ for _, name in RequiredFunctions do
 end
 
 if #MissingFunctions > 0 then
+    Popup:Dismiss()
     Library:Notification("Incompatible Executor", "Missing: " .. table.concat(MissingFunctions, ", "), 10)
     warn("[moonshine] Executor is missing critical functions even after Quartz polyfill: " .. table.concat(MissingFunctions, ", "))
     return
 end
+
+Popup:SetStatus("Loading game script...")
 
 local success, result = pcall(function()
     return loadstring(game:HttpGet(string.format("%s/games/%s.lua", BASE_URL, game.PlaceId), true))
 end)
 
 if success and type(result) == "function" then
+    Popup:SetStatus("Starting...")
+    task.wait(0.3)
+    Popup:Dismiss()
     result()
 else
+    Popup:Dismiss()
     Library:Notification("Failed to load.", "Game may not be supported, Check the github for supported games!", 5)
 end
