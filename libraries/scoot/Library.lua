@@ -4793,8 +4793,8 @@ local Library do
             Items["Watermark"] = Instances:Create("Frame", {
                 Parent = Library.Holder.Instance,
                 Name = "\0",
-                AnchorPoint = Vector2New(0.5, 1),
-                Position = UDim2New(0.5, 0, 1, -12),
+                AnchorPoint = Vector2New(1, 0),
+                Position = UDim2New(1, -12, 0, 12),
                 BorderColor3 = FromRGB(12, 12, 12),
                 BorderSizePixel = 2,
                 AutomaticSize = Enum.AutomaticSize.XY,
@@ -4868,10 +4868,12 @@ local Library do
             Items["KeybindList"] = Instances:Create("Frame", {
                 Parent = Library.Holder.Instance,
                 Name = "\0",
-                AnchorPoint = Vector2New(0, 0.5),
-                Position = UDim2New(0, 12, 0.5, 55),
+                AnchorPoint = Vector2New(0, 0),
+                Position = UDim2New(0, 12, 0.5, -50),
                 BorderColor3 = FromRGB(12, 12, 12),
-                Size = UDim2New(0, 116, 0, 32),
+                Size = UDim2New(0, 150, 0, 0),
+                AutomaticSize = Enum.AutomaticSize.Y,
+                ClipsDescendants = true,
                 BorderSizePixel = 2,
                 BackgroundColor3 = FromRGB(14, 17, 15)
             })  Items["KeybindList"]:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
@@ -4983,6 +4985,8 @@ local Library do
         function KeybindList:SetVisibility(Bool)
             Items["KeybindList"].Instance.Visible = Bool
         end
+
+        Items["KeybindList"].Instance.Visible = false
 
         return KeybindList
     end
@@ -6679,7 +6683,7 @@ local Library do
                     SettingsSection:Toggle({
                         Name = "Keybind list",
                         Flag = "Keybind list",
-                        Default = true,
+                        Default = false,
                         Callback = function(Value)
                             KeybindList:SetVisibility(Value)
                         end

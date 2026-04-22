@@ -2937,7 +2937,7 @@ do
         local AntiTase = MiscPage:Section({Name = "Anti Tase", Side = 2}) do
             local ATState = {
                 Enabled = false,
-                Method = "New Method",
+                Method = "Old Method",
             }
 
             AntiTase:Toggle({
@@ -2955,36 +2955,36 @@ do
                 Name = "Method",
                 ToolTip = {
                     Name = "Method",
-                    Description = "New Method blocks the tase event entirely. Old Method cancels the animation after it starts."
+                    Description = "New Method continuously blocks the tase event. Old Method cancels the animation after it starts but has a 5s weapon cooldown."
                 },
                 Flag = "AntiTaseMethod",
-                Default = "New Method",
+                Default = "Old Method",
                 Multi = false,
                 Items = {"New Method", "Old Method"},
                 Callback = function(v) ATState.Method = v end
             }) do
                 local PlayerTased = game:GetService("ReplicatedStorage"):WaitForChild("GunRemotes"):WaitForChild("PlayerTased")
-                local TaseHookConn = nil
 
                 local PreTaseSpeed = 16
                 local PreTaseJumpHeight = 5.5
                 local LastEquippedTool = nil
                 local WasTazedLastFrame = false
+                local TaseCooldownEnd = 0
+                local CooldownNotifShown = false
+                local CapturedSpeedOnTase = 16
 
-                local function HookTaseEvent()
-                    if TaseHookConn then return end
+                local NewMethodActive = false
+
+                local function DisableTaseConnections()
                     for _, conn in pairs(getconnections(PlayerTased.OnClientEvent)) do
                         conn:Disable()
                     end
-                    TaseHookConn = true
                 end
 
-                local function UnhookTaseEvent()
-                    if not TaseHookConn then return end
+                local function EnableTaseConnections()
                     for _, conn in pairs(getconnections(PlayerTased.OnClientEvent)) do
                         conn:Enable()
                     end
-                    TaseHookConn = nil
                 end
 
                 NewRender(function()
@@ -2997,26 +2997,34 @@ do
                     if currentTool then
                         LastEquippedTool = currentTool
                     end
-                    if humanoid.WalkSpeed > 0 then
-                        PreTaseSpeed = humanoid.WalkSpeed
-                    end
-                    if humanoid.JumpHeight > 0 then
-                        PreTaseJumpHeight = humanoid.JumpHeight
-                    end
 
                     if not ATState.Enabled then
-                        UnhookTaseEvent()
+                        if NewMethodActive then
+                            EnableTaseConnections()
+                            NewMethodActive = false
+                        end
                         WasTazedLastFrame = false
                         return
                     end
 
                     if ATState.Method == "New Method" then
-                        HookTaseEvent()
+                        DisableTaseConnections()
+                        NewMethodActive = true
                         WasTazedLastFrame = false
                         return
                     end
 
-                    UnhookTaseEvent()
+                    if NewMethodActive then
+                        EnableTaseConnections()
+                        NewMethodActive = false
+                    end
+
+                    if humanoid.WalkSpeed > 0 and tick() > TaseCooldownEnd then
+                        PreTaseSpeed = humanoid.WalkSpeed
+                    end
+                    if humanoid.JumpHeight > 0 then
+                        PreTaseJumpHeight = humanoid.JumpHeight
+                    end
 
                     local animator = humanoid:FindFirstChildOfClass("Animator")
                     if not animator then return end
@@ -3033,20 +3041,47 @@ do
                     if tazed then
                         humanoid.WalkSpeed = PreTaseSpeed
                         humanoid.JumpHeight = PreTaseJumpHeight
-                        if not WasTazedLastFrame and LastEquippedTool then
-                            local tool = LastEquippedTool
-                            if tool.Parent == game.Players.LocalPlayer.Backpack then
-                                humanoid:EquipTool(tool)
+
+                        if not WasTazedLastFrame then
+                            CapturedSpeedOnTase = PreTaseSpeed
+                            TaseCooldownEnd = tick() + 5
+                            CooldownNotifShown = false
+
+                            if LastEquippedTool then
+                                local tool = LastEquippedTool
+                                if tool.Parent == game.Players.LocalPlayer.Backpack then
+                                    humanoid:EquipTool(tool)
+                                end
                             end
                         end
                         WasTazedLastFrame = true
                     else
                         WasTazedLastFrame = false
                     end
+
+                    local now = tick()
+                    if TaseCooldownEnd > 0 and now < TaseCooldownEnd then
+                        if not CooldownNotifShown then
+                            CooldownNotifShown = true
+                            Library:Notification("Anti Tase", "Weapon cooldown active (5s)", 5)
+                        end
+
+                        if humanoid.WalkSpeed == 16 and CapturedSpeedOnTase ~= 16 then
+                            humanoid.WalkSpeed = CapturedSpeedOnTase
+                        end
+                    end
+
+                    if TaseCooldownEnd > 0 and now >= TaseCooldownEnd then
+                        if humanoid.WalkSpeed == 16 and CapturedSpeedOnTase ~= 16 then
+                            humanoid.WalkSpeed = CapturedSpeedOnTase
+                        end
+                        TaseCooldownEnd = 0
+                    end
                 end)
 
                 RegisterCleanup(function()
-                    UnhookTaseEvent()
+                    EnableTaseConnections()
+                    NewMethodActive = false
                 end)
             end
         end
