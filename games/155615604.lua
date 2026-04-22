@@ -92,12 +92,19 @@ do
     local PingThreshold = 0.3
     local LastPingWarning = 0
     local PingCooldown = 30
-    local SharedPickupItems = {}
-    local SharedPickupItemESPState = {
+    local ItemESPState = {
         Enabled = false,
+        Items = {},
         Color = Library.Theme.Accent,
+        Chams = false,
+        ChamsColor = Library.Theme.Accent,
+        ChamsFillTransparency = 0.5,
     }
-    local SharedPickupItemDrawings = {}
+    local ItemESPDrawings = {}
+    local ItemESPHighlights = {}
+    local ItemESPChamsFolder = Instance.new("Folder")
+    ItemESPChamsFolder.Name = "MoonshineItemChams"
+    ItemESPChamsFolder.Parent = game:GetService("CoreGui")
 
     local function ResolvePickupPart(obj)
         if obj:IsA("BasePart") then
@@ -1886,22 +1893,58 @@ do
 
             local ItemESPSection = ESPSubPage:Section({Name = "Item ESP", Side = 2}) do
                 ItemESPSection:Toggle({
-                    Name = "Pickup Aura Items",
+                    Name = "Enabled",
                     ToolTip = {
-                        Name = "Pickup Aura Item ESP",
-                        Description = "Draws labels for items selected in Misc -> Pickup Aura -> Items"
+                        Name = "Item ESP",
+                        Description = "Draws floating labels on world items, with distance scaling matching player ESP"
                     },
-                    Flag = "VisualPickupItemESPEnabled",
+                    Flag = "ItemESPEnabled",
                     Default = false,
-                    Callback = function(v) SharedPickupItemESPState.Enabled = v end
+                    Callback = function(v) ItemESPState.Enabled = v end
                 }):Colorpicker({
                     Name = "Color",
-                    Flag = "VisualPickupItemESPColor",
+                    Flag = "ItemESPColor",
                     Default = Library.Theme.Accent,
                     Alpha = 0,
-                    Callback = function(v) SharedPickupItemESPState.Color = v end
+                    Callback = function(v) ItemESPState.Color = v end
                 })
 
+                ItemESPSection:Dropdown({
+                    Name = "Items",
+                    ToolTip = { Name = "Items", Description = "Select which world items to show with Item ESP" },
+                    Flag = "ItemESPItems",
+                    Multi = true,
+                    Items = {"M9", "Hammer", "Crude Knife", "Key card"},
+                    Callback = function(v)
+                        local set = {}
+                        for _, name in pairs(v) do set[name] = true end
+                        ItemESPState.Items = set
+                    end
+                })
+
+                ItemESPSection:Toggle({
+                    Name = "Chams",
+                    ToolTip = { Name = "Item Chams", Description = "Highlights items with a colored overlay visible through walls" },
+                    Flag = "ItemESPChams",
+                    Default = false,
+                    Callback = function(v) ItemESPState.Chams = v end
+                }):Colorpicker({
+                    Name = "Chams Color",
+                    Flag = "ItemESPChamsColor",
+                    Default = Library.Theme.Accent,
+                    Alpha = 0,
+                    Callback = function(v) ItemESPState.ChamsColor = v end
+                })
+
+                ItemESPSection:Slider({
+                    Name = "Chams Fill Transparency",
+                    Flag = "ItemESPChamsFillTransparency",
+                    Default = 0.5,
+                    Min = 0,
+                    Max = 1,
+                    Decimals = 0.01,
+                    Callback = function(v) ItemESPState.ChamsFillTransparency = v end
+                })
             end
                 end
             end
@@ -2836,20 +2879,13 @@ do
         local PickupAura = MiscPage:Section({Name = "Pickup Aura", Side = 2}) do
             local PAState = {
                 Enabled = false,
-                Items = SharedPickupItems,
+                Items = {},
                 Radius = 10,
                 Cooldown = 0.5,
             }
 
             local PALastTick = 0
             local GiverRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("GiverPressed")
-
-            local PICKUP_ITEMS = {
-                ["M9"] = true,
-                ["Hammer"] = true,
-                ["Crude Knife"] = true,
-                ["Key card"] = true,
-            }
 
             PickupAura:Toggle({
                 Name = "Enabled",
@@ -2870,7 +2906,6 @@ do
                 Callback = function(v)
                     local set = {}
                     for _, name in pairs(v) do set[name] = true end
-                    SharedPickupItems = set
                     PAState.Items = set
                 end
             })
@@ -2912,63 +2947,99 @@ do
                     end
                 end
             end)
-
-            NewRender(function()
-                local character = game.Players.LocalPlayer.Character
-                local hrp = character and character:FindFirstChild("HumanoidRootPart")
-
-                if not SharedPickupItemESPState.Enabled or not hrp or not next(PAState.Items) then
-                    for _, drawing in pairs(SharedPickupItemDrawings) do
-                        drawing.Visible = false
-                    end
-                    return
-                end
-
-                local camera = workspace.CurrentCamera
-                local myPos = hrp.Position
-                local visibleNow = {}
-
-                for _, obj in pairs(workspace:GetChildren()) do
-                    if not PAState.Items[obj.Name] then continue end
-                    local part = ResolvePickupPart(obj)
-                    if not part then continue end
-
-                    local distance = (myPos - part.Position).Magnitude
-
-                    local screenPos, onScreen = camera:WorldToViewportPoint(part.Position + Vector3.new(0, 1.2, 0))
-                    if not onScreen then continue end
-
-                    local text = SharedPickupItemDrawings[obj]
-                    if not text then
-                        text = TrackDrawing(Drawing.new("Text"))
-                        text.Size = 13
-                        text.Center = true
-                        text.Outline = true
-                        text.Font = 2
-                        SharedPickupItemDrawings[obj] = text
-                    end
-
-                    text.Text = string.format("%s [%d]", obj.Name, math.floor(distance))
-                    text.Color = SharedPickupItemESPState.Color
-                    text.Position = Vector2.new(screenPos.X, screenPos.Y)
-                    text.Visible = true
-                    visibleNow[obj] = true
-                end
-
-                for obj, drawing in pairs(SharedPickupItemDrawings) do
-                    if not visibleNow[obj] then
-                        drawing.Visible = false
-                    end
-                end
-            end)
-
-            RegisterCleanup(function()
-                for _, drawing in pairs(SharedPickupItemDrawings) do
-                    pcall(drawing.Remove, drawing)
-                end
-                SharedPickupItemDrawings = {}
-            end)
         end
+    end
+
+    do
+        NewRender(function()
+            local character = game.Players.LocalPlayer.Character
+            local hrp = character and character:FindFirstChild("HumanoidRootPart")
+
+            if not ItemESPState.Enabled or not hrp or not next(ItemESPState.Items) then
+                for _, data in pairs(ItemESPDrawings) do
+                    data.Text.Visible = false
+                end
+                for obj, hl in pairs(ItemESPHighlights) do
+                    hl.Enabled = false
+                end
+                return
+            end
+
+            local camera = workspace.CurrentCamera
+            local myPos = hrp.Position
+            local visibleNow = {}
+
+            for _, obj in pairs(workspace:GetChildren()) do
+                if not ItemESPState.Items[obj.Name] then continue end
+                local part = ResolvePickupPart(obj)
+                if not part then continue end
+
+                local distance = (myPos - part.Position).Magnitude
+
+                local screenPos, onScreen = camera:WorldToViewportPoint(part.Position + Vector3.new(0, 1.2, 0))
+                if not onScreen then continue end
+
+                local scale = 1 / (screenPos.Z * math.tan(math.rad(camera.FieldOfView * 0.5)) * 2) * 1000
+                local textSize = math.clamp(math.floor(12 * (scale / 3.5)), 8, 18)
+
+                local data = ItemESPDrawings[obj]
+                if not data then
+                    local text = TrackDrawing(Drawing.new("Text"))
+                    text.Center = true
+                    text.Outline = true
+                    text.Font = 2
+                    data = { Text = text }
+                    ItemESPDrawings[obj] = data
+                end
+
+                data.Text.Size = textSize
+                data.Text.Text = string.format("%s [%d]", obj.Name, math.floor(distance))
+                data.Text.Color = ItemESPState.Color
+                data.Text.Position = Vector2.new(screenPos.X, screenPos.Y)
+                data.Text.Visible = true
+                visibleNow[obj] = true
+
+                if ItemESPState.Chams then
+                    local hl = ItemESPHighlights[obj]
+                    if not hl then
+                        hl = Instance.new("Highlight")
+                        hl.Name = obj.Name
+                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        hl.Parent = ItemESPChamsFolder
+                        ItemESPHighlights[obj] = hl
+                    end
+                    hl.Adornee = obj
+                    hl.FillColor = ItemESPState.ChamsColor
+                    hl.OutlineColor = ItemESPState.ChamsColor
+                    hl.FillTransparency = ItemESPState.ChamsFillTransparency
+                    hl.OutlineTransparency = 0
+                    hl.Enabled = true
+                else
+                    local hl = ItemESPHighlights[obj]
+                    if hl then hl.Enabled = false end
+                end
+            end
+
+            for obj, data in pairs(ItemESPDrawings) do
+                if not visibleNow[obj] then
+                    data.Text.Visible = false
+                    local hl = ItemESPHighlights[obj]
+                    if hl then hl.Enabled = false end
+                end
+            end
+        end)
+
+        RegisterCleanup(function()
+            for _, data in pairs(ItemESPDrawings) do
+                pcall(data.Text.Remove, data.Text)
+            end
+            ItemESPDrawings = {}
+            for _, hl in pairs(ItemESPHighlights) do
+                pcall(hl.Destroy, hl)
+            end
+            ItemESPHighlights = {}
+            pcall(ItemESPChamsFolder.Destroy, ItemESPChamsFolder)
+        end)
     end
 
     do
