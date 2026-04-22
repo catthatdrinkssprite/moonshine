@@ -88,6 +88,7 @@ do
     end)
 
     local PingWarningEnabled = false
+    local KillfeedNotificationsEnabled = false
     local PingThreshold = 0.3
     local LastPingWarning = 0
     local PingCooldown = 30
@@ -897,6 +898,7 @@ do
             }
 
             local Players = game:GetService("Players")
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
             local LocalPlayer = Players.LocalPlayer
             local HealthConnections = {}
             local LastFireTime = 0
@@ -914,6 +916,7 @@ do
                 Volume = 1,
                 Sound = "minecraft orb.mp3",
             }
+            local ConfirmedKillCount = 0
 
             local function PlaySound(soundFile, volume)
                 local id = SoundFiles[soundFile]
@@ -932,6 +935,19 @@ do
 
             local function PlayKillSound()
                 PlaySound(KillSoundState.Sound, KillSoundState.Volume)
+            end
+
+            local function IsLocalKillfeedEntry(entryText)
+                if type(entryText) ~= "string" or entryText == "" then
+                    return false
+                end
+                local killPos = string.find(entryText, " killed ", 1, true)
+                if not killPos then
+                    return false
+                end
+                local killerText = string.sub(entryText, 1, killPos - 1)
+                local token = "(@" .. LocalPlayer.Name .. ")"
+                return string.find(string.lower(killerText), string.lower(token), 1, true) ~= nil
             end
 
             local function MuteShootSound(tool)
@@ -983,9 +999,6 @@ do
                             if HitSoundState.Enabled then
                                 PlayHitSound()
                             end
-                            if KillSoundState.Enabled and newHealth <= 0 then
-                                PlayKillSound()
-                            end
                         end
                         lastHealth = newHealth
                     end)
@@ -1009,6 +1022,23 @@ do
                     HealthConnections[player] = nil
                 end
             end))
+
+            local KillfeedFolder = ReplicatedStorage:FindFirstChild("Killfeed")
+            if KillfeedFolder then
+                TrackConnection(KillfeedFolder.ChildAdded:Connect(function(entry)
+                    if not entry:IsA("IntValue") then
+                        return
+                    end
+                    local entryText = entry.Name
+                    if KillfeedNotificationsEnabled then
+                        Library:Notification("Killfeed", entryText, 3)
+                    end
+                    if KillSoundState.Enabled and IsLocalKillfeedEntry(entryText) then
+                        ConfirmedKillCount = ConfirmedKillCount + 1
+                        PlayKillSound()
+                    end
+                end))
+            end
 
             RegisterCleanup(function()
                 for player, conn in pairs(HealthConnections) do
@@ -2516,6 +2546,17 @@ do
                 Default = false,
                 Callback = function(v) PingWarningEnabled = v end
             })
+
+            PingWarning:Toggle({
+                Name = "Killfeed Notifications",
+                ToolTip = {
+                    Name = "Killfeed Notifications",
+                    Description = "Shows a notification for every new killfeed entry"
+                },
+                Flag = "KillfeedNotificationsEnabled",
+                Default = false,
+                Callback = function(v) KillfeedNotificationsEnabled = v end
+            })
         end
     end
 
@@ -2764,6 +2805,12 @@ do
                 Radius = 10,
                 Cooldown = 0.5,
             }
+            local PAItemESPState = {
+                Enabled = false,
+                MaxDistance = 120,
+                Color = Library.Theme.Accent,
+            }
+            local PAItemDrawings = {}
 
             local PALastTick = 0
             local GiverRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("GiverPressed")
@@ -2809,6 +2856,43 @@ do
                 Callback = function(v) PAState.Radius = v end
             })
 
+            PickupAura:Toggle({
+                Name = "Item ESP",
+                ToolTip = {
+                    Name = "Item ESP",
+                    Description = "Draws labels for selected Pickup Aura items around the map"
+                },
+                Flag = "PickupAuraItemESP",
+                Default = false,
+                Callback = function(v) PAItemESPState.Enabled = v end
+            }):Colorpicker({
+                Name = "Color",
+                Flag = "PickupAuraItemESPColor",
+                Default = Library.Theme.Accent,
+                Alpha = 0,
+                Callback = function(v) PAItemESPState.Color = v end
+            })
+
+            PickupAura:Slider({
+                Name = "ESP Max Distance",
+                Flag = "PickupAuraItemESPMaxDistance",
+                Min = 20,
+                Max = 500,
+                Default = 120,
+                Suffix = " studs",
+                Decimals = 1,
+                Callback = function(v) PAItemESPState.MaxDistance = v end
+            })
+
+            local function ResolvePickupPart(obj)
+                if obj:IsA("BasePart") then
+                    return obj
+                elseif obj:IsA("Model") then
+                    return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                end
+                return nil
+            end
+
             NewRender(function()
                 if not PAState.Enabled then return end
                 if not next(PAState.Items) then return end
@@ -2826,13 +2910,7 @@ do
 
                 for _, obj in pairs(workspace:GetChildren()) do
                     if not PAState.Items[obj.Name] then continue end
-
-                    local part
-                    if obj:IsA("BasePart") then
-                        part = obj
-                    elseif obj:IsA("Model") then
-                        part = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-                    end
+                    local part = ResolvePickupPart(obj)
 
                     if part and (myPos - part.Position).Magnitude <= radius then
                         PALastTick = now
@@ -2840,6 +2918,63 @@ do
                         return
                     end
                 end
+            end)
+
+            NewRender(function()
+                local character = game.Players.LocalPlayer.Character
+                local hrp = character and character:FindFirstChild("HumanoidRootPart")
+
+                if not PAItemESPState.Enabled or not hrp or not next(PAState.Items) then
+                    for _, drawing in pairs(PAItemDrawings) do
+                        drawing.Visible = false
+                    end
+                    return
+                end
+
+                local camera = workspace.CurrentCamera
+                local myPos = hrp.Position
+                local visibleNow = {}
+
+                for _, obj in pairs(workspace:GetChildren()) do
+                    if not PAState.Items[obj.Name] then continue end
+                    local part = ResolvePickupPart(obj)
+                    if not part then continue end
+
+                    local distance = (myPos - part.Position).Magnitude
+                    if distance > PAItemESPState.MaxDistance then continue end
+
+                    local screenPos, onScreen = camera:WorldToViewportPoint(part.Position + Vector3.new(0, 1.2, 0))
+                    if not onScreen then continue end
+
+                    local text = PAItemDrawings[obj]
+                    if not text then
+                        text = TrackDrawing(Drawing.new("Text"))
+                        text.Size = 13
+                        text.Center = true
+                        text.Outline = true
+                        text.Font = 2
+                        PAItemDrawings[obj] = text
+                    end
+
+                    text.Text = string.format("%s [%d]", obj.Name, math.floor(distance))
+                    text.Color = PAItemESPState.Color
+                    text.Position = Vector2.new(screenPos.X, screenPos.Y)
+                    text.Visible = true
+                    visibleNow[obj] = true
+                end
+
+                for obj, drawing in pairs(PAItemDrawings) do
+                    if not visibleNow[obj] then
+                        drawing.Visible = false
+                    end
+                end
+            end)
+
+            RegisterCleanup(function()
+                for _, drawing in pairs(PAItemDrawings) do
+                    pcall(drawing.Remove, drawing)
+                end
+                PAItemDrawings = {}
             end)
         end
     end
