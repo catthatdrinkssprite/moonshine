@@ -2639,6 +2639,82 @@ do
     end
 
     do
+        local MonoAudio = MiscPage:Section({Name = "Center Gun Audio", Side = 1}) do
+            local MonoState = { Enabled = false }
+            local OriginalEmitterSizes = {}
+
+            local function PatchSounds(tool, enable)
+                if not tool then return end
+                for _, desc in pairs(tool:GetDescendants()) do
+                    if not desc:IsA("Sound") then continue end
+                    if enable then
+                        if OriginalEmitterSizes[desc] == nil then
+                            OriginalEmitterSizes[desc] = desc.EmitterSize
+                        end
+                        desc.EmitterSize = 9999
+                    else
+                        local orig = OriginalEmitterSizes[desc]
+                        if orig then
+                            desc.EmitterSize = orig
+                            OriginalEmitterSizes[desc] = nil
+                        end
+                    end
+                end
+            end
+
+            local function IsFirstPerson()
+                local cam = workspace.CurrentCamera
+                local char = game.Players.LocalPlayer.Character
+                if not cam or not char then return false end
+                local head = char:FindFirstChild("Head")
+                if not head then return false end
+                return (cam.CFrame.Position - head.Position).Magnitude < 1.5
+            end
+
+            MonoAudio:Toggle({
+                Name = "Enabled",
+                ToolTip = {
+                    Name = "Center Gun Audio",
+                    Description = "Forces gun sounds to play centered (mono) in first person, preventing right-ear bias from the weapon offset"
+                },
+                Flag = "CenterGunAudioEnabled",
+                Default = false,
+                Callback = function(v) MonoState.Enabled = v end
+            })
+
+            NewRender(function()
+                local char = game.Players.LocalPlayer.Character
+                if not char then return end
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hum then return end
+
+                local tool = char:FindFirstChildOfClass("Tool")
+                local shouldPatch = MonoState.Enabled and IsFirstPerson() and tool ~= nil
+
+                if shouldPatch then
+                    PatchSounds(tool, true)
+                else
+                    for snd, orig in pairs(OriginalEmitterSizes) do
+                        if snd and snd.Parent then
+                            snd.EmitterSize = orig
+                        end
+                    end
+                    OriginalEmitterSizes = {}
+                end
+            end)
+
+            RegisterCleanup(function()
+                for snd, orig in pairs(OriginalEmitterSizes) do
+                    if snd and snd.Parent then
+                        pcall(function() snd.EmitterSize = orig end)
+                    end
+                end
+                OriginalEmitterSizes = {}
+            end)
+        end
+    end
+
+    do
         local RemoveJumpCooldown = MiscPage:Section({Name = "Remove Jump Cooldown", Side = 1}) do
             local Enabled = RemoveJumpCooldown:Toggle({
                 Name = "Enabled",
