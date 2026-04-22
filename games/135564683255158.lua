@@ -92,6 +92,22 @@ do
     local PingThreshold = 0.3
     local LastPingWarning = 0
     local PingCooldown = 30
+    local SharedPickupItems = {}
+    local SharedPickupItemESPState = {
+        Enabled = false,
+        MaxDistance = 120,
+        Color = Library.Theme.Accent,
+    }
+    local SharedPickupItemDrawings = {}
+
+    local function ResolvePickupPart(obj)
+        if obj:IsA("BasePart") then
+            return obj
+        elseif obj:IsA("Model") then
+            return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+        end
+        return nil
+    end
 
     do
         local LastFPS = 0
@@ -1868,6 +1884,36 @@ do
                             OriginalMaterials[key][part] = nil
                         end
                     end
+
+            local ItemESPSection = ESPSubPage:Section({Name = "Item ESP", Side = 2}) do
+                ItemESPSection:Toggle({
+                    Name = "Pickup Aura Items",
+                    ToolTip = {
+                        Name = "Pickup Aura Item ESP",
+                        Description = "Draws labels for items selected in Misc -> Pickup Aura -> Items"
+                    },
+                    Flag = "VisualPickupItemESPEnabled",
+                    Default = false,
+                    Callback = function(v) SharedPickupItemESPState.Enabled = v end
+                }):Colorpicker({
+                    Name = "Color",
+                    Flag = "VisualPickupItemESPColor",
+                    Default = Library.Theme.Accent,
+                    Alpha = 0,
+                    Callback = function(v) SharedPickupItemESPState.Color = v end
+                })
+
+                ItemESPSection:Slider({
+                    Name = "Max Distance",
+                    Flag = "VisualPickupItemESPMaxDistance",
+                    Min = 20,
+                    Max = 500,
+                    Default = 120,
+                    Suffix = " studs",
+                    Decimals = 1,
+                    Callback = function(v) SharedPickupItemESPState.MaxDistance = v end
+                })
+            end
                 end
             end
         end
@@ -2801,16 +2847,10 @@ do
         local PickupAura = MiscPage:Section({Name = "Pickup Aura", Side = 2}) do
             local PAState = {
                 Enabled = false,
-                Items = {},
+                Items = SharedPickupItems,
                 Radius = 10,
                 Cooldown = 0.5,
             }
-            local PAItemESPState = {
-                Enabled = false,
-                MaxDistance = 120,
-                Color = Library.Theme.Accent,
-            }
-            local PAItemDrawings = {}
 
             local PALastTick = 0
             local GiverRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("GiverPressed")
@@ -2841,6 +2881,7 @@ do
                 Callback = function(v)
                     local set = {}
                     for _, name in pairs(v) do set[name] = true end
+                    SharedPickupItems = set
                     PAState.Items = set
                 end
             })
@@ -2855,43 +2896,6 @@ do
                 Decimals = 1,
                 Callback = function(v) PAState.Radius = v end
             })
-
-            PickupAura:Toggle({
-                Name = "Item ESP",
-                ToolTip = {
-                    Name = "Item ESP",
-                    Description = "Draws labels for selected Pickup Aura items around the map"
-                },
-                Flag = "PickupAuraItemESP",
-                Default = false,
-                Callback = function(v) PAItemESPState.Enabled = v end
-            }):Colorpicker({
-                Name = "Color",
-                Flag = "PickupAuraItemESPColor",
-                Default = Library.Theme.Accent,
-                Alpha = 0,
-                Callback = function(v) PAItemESPState.Color = v end
-            })
-
-            PickupAura:Slider({
-                Name = "ESP Max Distance",
-                Flag = "PickupAuraItemESPMaxDistance",
-                Min = 20,
-                Max = 500,
-                Default = 120,
-                Suffix = " studs",
-                Decimals = 1,
-                Callback = function(v) PAItemESPState.MaxDistance = v end
-            })
-
-            local function ResolvePickupPart(obj)
-                if obj:IsA("BasePart") then
-                    return obj
-                elseif obj:IsA("Model") then
-                    return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-                end
-                return nil
-            end
 
             NewRender(function()
                 if not PAState.Enabled then return end
@@ -2924,8 +2928,8 @@ do
                 local character = game.Players.LocalPlayer.Character
                 local hrp = character and character:FindFirstChild("HumanoidRootPart")
 
-                if not PAItemESPState.Enabled or not hrp or not next(PAState.Items) then
-                    for _, drawing in pairs(PAItemDrawings) do
+                if not SharedPickupItemESPState.Enabled or not hrp or not next(PAState.Items) then
+                    for _, drawing in pairs(SharedPickupItemDrawings) do
                         drawing.Visible = false
                     end
                     return
@@ -2941,29 +2945,29 @@ do
                     if not part then continue end
 
                     local distance = (myPos - part.Position).Magnitude
-                    if distance > PAItemESPState.MaxDistance then continue end
+                    if distance > SharedPickupItemESPState.MaxDistance then continue end
 
                     local screenPos, onScreen = camera:WorldToViewportPoint(part.Position + Vector3.new(0, 1.2, 0))
                     if not onScreen then continue end
 
-                    local text = PAItemDrawings[obj]
+                    local text = SharedPickupItemDrawings[obj]
                     if not text then
                         text = TrackDrawing(Drawing.new("Text"))
                         text.Size = 13
                         text.Center = true
                         text.Outline = true
                         text.Font = 2
-                        PAItemDrawings[obj] = text
+                        SharedPickupItemDrawings[obj] = text
                     end
 
                     text.Text = string.format("%s [%d]", obj.Name, math.floor(distance))
-                    text.Color = PAItemESPState.Color
+                    text.Color = SharedPickupItemESPState.Color
                     text.Position = Vector2.new(screenPos.X, screenPos.Y)
                     text.Visible = true
                     visibleNow[obj] = true
                 end
 
-                for obj, drawing in pairs(PAItemDrawings) do
+                for obj, drawing in pairs(SharedPickupItemDrawings) do
                     if not visibleNow[obj] then
                         drawing.Visible = false
                     end
@@ -2971,10 +2975,10 @@ do
             end)
 
             RegisterCleanup(function()
-                for _, drawing in pairs(PAItemDrawings) do
+                for _, drawing in pairs(SharedPickupItemDrawings) do
                     pcall(drawing.Remove, drawing)
                 end
-                PAItemDrawings = {}
+                SharedPickupItemDrawings = {}
             end)
         end
     end
