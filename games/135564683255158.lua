@@ -1364,6 +1364,8 @@ do
                 return true
             end
 
+            local ESPState
+
             local function GetDisplayName(Character)
                 local humanoid = Character:FindFirstChildOfClass("Humanoid")
                 if not humanoid then return Character.Name end
@@ -1484,7 +1486,7 @@ do
                 })
             end
 
-            local ESPState = {
+            ESPState = {
                 Enabled = false,
                 ShowSelf = false,
                 TeamColor = true,
