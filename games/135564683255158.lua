@@ -2986,13 +2986,14 @@ do
                 if not data then
                     local text = TrackDrawing(Drawing.new("Text"))
                     text.Center = true
-                    text.Outline = true
-                    text.Font = 2
+                    text.ZIndex = 5
+                    text.OutlineColor = Color3.fromRGB(0, 0, 0)
                     data = { Text = text }
                     ItemESPDrawings[obj] = data
                 end
 
                 data.Text.Size = textSize
+                data.Text.Outline = ESPState.Outline
                 data.Text.Text = string.format("%s [%d]", obj.Name, math.floor(distance))
                 data.Text.Color = ItemESPState.Color
                 data.Text.Position = Vector2.new(screenPos.X, screenPos.Y)
