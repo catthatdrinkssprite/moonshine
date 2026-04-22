@@ -92,6 +92,7 @@ do
     local PingThreshold = 0.3
     local LastPingWarning = 0
     local PingCooldown = 30
+    local AutoBlacklistSet = {}
     local ItemESPState = {
         Enabled = false,
         Items = {},
@@ -692,7 +693,7 @@ do
                         for _, Player in next, GetPlayers(Players) do
                             if Player == LocalPlayer then continue end
 
-                            local isBlacklisted = SilentAimState.Blacklist[Player.Name]
+                            local isBlacklisted = SilentAimState.Blacklist[Player.Name] or AutoBlacklistSet[Player.Name]
                             local TeamName = Player.Team and Player.Team.Name or ""
 
                             if isBlacklisted then
@@ -1321,7 +1322,7 @@ do
             end
 
             local function IsBlacklisted(Player)
-                return ESPFilterState.Blacklist[Player.Name] == true
+                return ESPFilterState.Blacklist[Player.Name] == true or AutoBlacklistSet[Player.Name] == true
             end
 
             local function ShouldShowPlayer(Player)
@@ -1370,13 +1371,30 @@ do
                 if Character:FindFirstChild("ForceField") then
                     prefix = "[FF] "
                 end
-                local displayName = humanoid.DisplayName
-                if string.sub(displayName, 1, 4) == "\xF0\x9F\x94\x97" then
-                    return prefix .. "[W] " .. Character.Name
-                elseif string.sub(displayName, 1, 4) == "\xF0\x9F\x92\xA2" then
-                    return prefix .. "[A] " .. Character.Name
+
+                if ESPState.InmateStatus then
+                    local dn = humanoid.DisplayName
+                    if string.sub(dn, 1, 4) == "\xF0\x9F\x94\x97" then
+                        prefix = prefix .. "[W] "
+                    elseif string.sub(dn, 1, 4) == "\xF0\x9F\x92\xA2" then
+                        prefix = prefix .. "[A] "
+                    end
                 end
-                return prefix .. Character.Name
+
+                local player = game.Players:GetPlayerFromCharacter(Character)
+                local username = Character.Name
+                local realDisplayName = player and player.DisplayName or username
+
+                local fmt = ESPState.NameFormat
+                if fmt == "Display Name" then
+                    return prefix .. realDisplayName
+                elseif fmt == "Display Name (@Username)" then
+                    if realDisplayName == username then
+                        return prefix .. username
+                    end
+                    return prefix .. realDisplayName .. " (@" .. username .. ")"
+                end
+                return prefix .. username
             end
 
             local ESPFilters = ESPSubPage:Section({Name = "Filters", Side = 1}) do
@@ -1474,6 +1492,7 @@ do
                 Outline = true,
                 Name = false,
                 InmateStatus = true,
+                NameFormat = "Username",
                 Box = false,
                 Skeleton = false,
                 Chams = false,
@@ -1512,6 +1531,16 @@ do
                     Flag = "ESPInmateStatus",
                     Default = true,
                     Callback = function(v) ESPState.InmateStatus = v end
+                })
+
+                ESPSection:Dropdown({
+                    Name = "Name Format",
+                    ToolTip = { Name = "Name Format", Description = "Choose how player names appear on ESP" },
+                    Flag = "ESPNameFormat",
+                    Multi = false,
+                    Default = "Username",
+                    Items = {"Username", "Display Name", "Display Name (@Username)"},
+                    Callback = function(v) ESPState.NameFormat = v end
                 })
 
                 ESPSection:Toggle({
@@ -1707,7 +1736,7 @@ do
 
                             local espColor
                             if IsBlacklisted(Player) then
-                                espColor = Color3.fromRGB(255, 0, 0)
+                                espColor = Color3.fromRGB(90, 90, 90)
                             elseif IsWhitelisted(Player) then
                                 espColor = Color3.fromRGB(0, 255, 0)
                             elseif ESPState.TeamColor then
@@ -1723,7 +1752,7 @@ do
 
                             if ESPState.Name then
                                 Text.Position = Vector2.new(pos.X, yPos - 14)
-                                Text.Text = ESPState.InmateStatus and GetDisplayName(Character) or Character.Name
+                                Text.Text = GetDisplayName(Character)
                                 Text.Color = espColor
                                 Text.Outline = ESPState.Outline
                                 Text.Visible = true
@@ -2635,6 +2664,76 @@ do
                 Default = false,
                 Callback = function(v) KillfeedNotificationsEnabled = v end
             })
+        end
+    end
+
+    do
+        local AutoBLSection = MiscPage:Section({Name = "Auto Blacklist", Side = 2}) do
+            local AutoBLState = { Enabled = false }
+
+            local function ExtractKillerUsername(entryText)
+                local killPos = string.find(entryText, " killed ", 1, true)
+                if not killPos then return nil end
+                local killerText = string.sub(entryText, 1, killPos - 1)
+                local username = string.match(killerText, "@([%w_]+)%)")
+                return username
+            end
+
+            local function ExtractVictimUsername(entryText)
+                local killPos = string.find(entryText, " killed ", 1, true)
+                if not killPos then return nil end
+                local afterKill = string.sub(entryText, killPos + 8)
+                local username = string.match(afterKill, "@([%w_]+)%)")
+                return username
+            end
+
+            AutoBLSection:Toggle({
+                Name = "Enabled",
+                ToolTip = {
+                    Name = "Auto Blacklist",
+                    Description = "When you die as a criminal, automatically blacklists the inmate who killed you. Uses killfeed for accuracy."
+                },
+                Flag = "AutoBlacklistEnabled",
+                Default = false,
+                Callback = function(v) AutoBLState.Enabled = v end
+            })
+
+            local KillfeedFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Killfeed")
+            if KillfeedFolder then
+                TrackConnection(KillfeedFolder.ChildAdded:Connect(function(entry)
+                    if not entry:IsA("IntValue") then return end
+                    if not AutoBLState.Enabled then return end
+
+                    local lp = game.Players.LocalPlayer
+                    local myTeam = lp.Team and lp.Team.Name or ""
+                    if myTeam ~= "Criminals" then return end
+
+                    local entryText = entry.Name
+                    local victimName = ExtractVictimUsername(entryText)
+                    if victimName ~= lp.Name then return end
+
+                    local killerName = ExtractKillerUsername(entryText)
+                    if not killerName or killerName == lp.Name then return end
+
+                    local killer = game.Players:FindFirstChild(killerName)
+                    if not killer then return end
+                    local killerTeam = killer.Team and killer.Team.Name or ""
+                    if killerTeam ~= "Inmates" then return end
+
+                    if not AutoBlacklistSet[killerName] then
+                        AutoBlacklistSet[killerName] = true
+                        Library:Notification({
+                            Title = "Auto Blacklist",
+                            Description = killerName .. " auto-blacklisted (killed you)",
+                            Duration = 3,
+                        })
+                    end
+                end))
+            end
+
+            RegisterCleanup(function()
+                AutoBlacklistSet = {}
+            end)
         end
     end
 
@@ -3817,7 +3916,7 @@ do
             for _, player in pairs(Players:GetPlayers()) do
                 if player == LocalPlayer then continue end
 
-                local rbBlacklisted = RBState.Blacklist[player.Name]
+                local rbBlacklisted = RBState.Blacklist[player.Name] or AutoBlacklistSet[player.Name]
                 local teamName = player.Team and player.Team.Name or ""
 
                 if rbBlacklisted then
