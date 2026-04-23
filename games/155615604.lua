@@ -730,21 +730,44 @@ do
                             if not HumanoidRootPart then continue end
 
                             local resolvedBone = ResolveBone(RawBone, Character, LocalCharacter)
+                            local targetPart = FindFirstChild(Character, resolvedBone) or HumanoidRootPart
 
                             if SilentAimState.WallCheck and not IsPlayerVisible(Player, resolvedBone) then continue end
 
                             if muzzleOrigin then
-                                local targetBone = FindFirstChild(Character, resolvedBone) or HumanoidRootPart
                                 losParams.FilterDescendantsInstances = {LocalCharacter, Character}
-                                if workspace:Raycast(muzzleOrigin, targetBone.Position - muzzleOrigin, losParams) then continue end
+                                if workspace:Raycast(muzzleOrigin, targetPart.Position - muzzleOrigin, losParams) then continue end
                             end
 
-                            local ScreenPos, OnScreen = WorldToViewportPoint(Camera, HumanoidRootPart.Position)
+                            local ScreenPos, OnScreen = WorldToViewportPoint(Camera, targetPart.Position)
                             if not OnScreen then continue end
 
                             local Distance = (MousePos - Vector2.new(ScreenPos.X, ScreenPos.Y)).Magnitude
-                            if Distance <= (ClosestDist or SilentAimState.Radius) then
-                                Closest = FindFirstChild(Character, resolvedBone) or HumanoidRootPart
+
+                            if Distance > (ClosestDist or SilentAimState.Radius) then
+                                local bestBonePart = nil
+                                local bestBoneDist = ClosestDist or SilentAimState.Radius
+                                for _, boneName in ipairs(R6_BONES) do
+                                    local bp = FindFirstChild(Character, boneName)
+                                    if not bp then continue end
+                                    local bsp, bos = WorldToViewportPoint(Camera, bp.Position)
+                                    if not bos then continue end
+                                    local bd = (MousePos - Vector2.new(bsp.X, bsp.Y)).Magnitude
+                                    if bd < bestBoneDist then
+                                        if muzzleOrigin then
+                                            losParams.FilterDescendantsInstances = {LocalCharacter, Character}
+                                            if workspace:Raycast(muzzleOrigin, bp.Position - muzzleOrigin, losParams) then continue end
+                                        end
+                                        bestBoneDist = bd
+                                        bestBonePart = bp
+                                    end
+                                end
+                                if bestBonePart then
+                                    Closest = bestBonePart
+                                    ClosestDist = bestBoneDist
+                                end
+                            else
+                                Closest = targetPart
                                 ClosestDist = Distance
                             end
                         end
@@ -2742,26 +2765,7 @@ do
     do
         local MonoAudio = MiscPage:Section({Name = "Center Gun Audio", Side = 1}) do
             local MonoState = { Enabled = false }
-            local OriginalEmitterSizes = {}
-
-            local function PatchSounds(tool, enable)
-                if not tool then return end
-                for _, desc in pairs(tool:GetDescendants()) do
-                    if not desc:IsA("Sound") then continue end
-                    if enable then
-                        if OriginalEmitterSizes[desc] == nil then
-                            OriginalEmitterSizes[desc] = desc.EmitterSize
-                        end
-                        desc.EmitterSize = 9999
-                    else
-                        local orig = OriginalEmitterSizes[desc]
-                        if orig then
-                            desc.EmitterSize = orig
-                            OriginalEmitterSizes[desc] = nil
-                        end
-                    end
-                end
-            end
+            local ReparentedSounds = {}
 
             local function IsFirstPerson()
                 local cam = workspace.CurrentCamera
@@ -2776,7 +2780,7 @@ do
                 Name = "Enabled",
                 ToolTip = {
                     Name = "Center Gun Audio",
-                    Description = "Forces gun sounds to play centered (mono) in first person, preventing right-ear bias from the weapon offset"
+                    Description = "Moves gun sounds to your head so they play centered instead of from the right ear in first person"
                 },
                 Flag = "CenterGunAudioEnabled",
                 Default = false,
@@ -2786,31 +2790,39 @@ do
             NewRender(function()
                 local char = game.Players.LocalPlayer.Character
                 if not char then return end
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if not hum then return end
+                local head = char:FindFirstChild("Head")
+                if not head then return end
 
                 local tool = char:FindFirstChildOfClass("Tool")
                 local shouldPatch = MonoState.Enabled and IsFirstPerson() and tool ~= nil
 
                 if shouldPatch then
-                    PatchSounds(tool, true)
-                else
-                    for snd, orig in pairs(OriginalEmitterSizes) do
-                        if snd and snd.Parent then
-                            snd.EmitterSize = orig
+                    for _, desc in pairs(tool:GetDescendants()) do
+                        if not desc:IsA("Sound") then continue end
+                        if not ReparentedSounds[desc] then
+                            ReparentedSounds[desc] = desc.Parent
+                        end
+                        if desc.Parent ~= head then
+                            desc.Parent = head
                         end
                     end
-                    OriginalEmitterSizes = {}
+                else
+                    for snd, origParent in pairs(ReparentedSounds) do
+                        if snd and snd.Parent and origParent and origParent.Parent then
+                            snd.Parent = origParent
+                        end
+                    end
+                    ReparentedSounds = {}
                 end
             end)
 
             RegisterCleanup(function()
-                for snd, orig in pairs(OriginalEmitterSizes) do
-                    if snd and snd.Parent then
-                        pcall(function() snd.EmitterSize = orig end)
+                for snd, origParent in pairs(ReparentedSounds) do
+                    if snd and snd.Parent and origParent and origParent.Parent then
+                        pcall(function() snd.Parent = origParent end)
                     end
                 end
-                OriginalEmitterSizes = {}
+                ReparentedSounds = {}
             end)
         end
     end

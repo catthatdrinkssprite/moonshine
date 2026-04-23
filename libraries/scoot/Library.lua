@@ -4930,7 +4930,7 @@ local Library do
                 Name = "\0",
                 BorderColor3 = FromRGB(0, 0, 0),
                 BackgroundTransparency = 1,
-                Position = UDim2New(0, 0, 0, 32),
+                Position = UDim2New(0, 0, 0, 20),
                 Size = UDim2New(1, 0, 0, 0),
                 BorderSizePixel = 0,
                 AutomaticSize = Enum.AutomaticSize.Y,
