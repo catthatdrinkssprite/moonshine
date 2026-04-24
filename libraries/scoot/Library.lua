@@ -1,7 +1,7 @@
 --[[
     scoot ui library
     made by samet
-    edited a lil bit by catthatdrinkssprite
+    edited a lil bit by catthatdrinkssprite and azula
 
     example/documentation is at the bottom
 ]]

@@ -9,7 +9,7 @@
 ## 🎮 supported games
 | game name | place id | lines of code |
 | --- | --- | --- |
-| prison life | 155615604 | ~2000 |
+| prison life | 155615604 | ~4000 |
 
 ## 💻 recommended executors
 | executor | sunc | price |
