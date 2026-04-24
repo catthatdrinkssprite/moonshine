@@ -141,7 +141,7 @@ catthatdrinkssprite - script founder and lead developer
 
 azula.cs - active contributor
 
-scoot - ui library
+samet - ui library
 
 upio - executor compatibility and polyfill framework
 
