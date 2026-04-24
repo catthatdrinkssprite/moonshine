@@ -1891,60 +1891,6 @@ do
                 end
             end
 
-            RegisterCleanup(function()
-                for char, hl in pairs(ActiveHighlights) do
-                    pcall(hl.Destroy, hl)
-                end
-                ActiveHighlights = {}
-                pcall(ChamsFolder.Destroy, ChamsFolder)
-            end)
-        end
-    end
-
-    do
-        local CharSubPage = VisualsPage:SubPage({Name = "Character", Columns = 2})
-
-        local FFState = {
-            Enabled = false,
-            ApplyTo = "Character",
-            TeamColor = true,
-            Color = Color3.fromRGB(0, 170, 255),
-            SelfOnly = true,
-        }
-
-        local OriginalMaterials = {}
-        local ActivePlayers = {}
-
-        local function ApplyForceField(character, color)
-            if not character then return end
-            local key = character
-            if not OriginalMaterials[key] then OriginalMaterials[key] = {} end
-
-            for _, part in pairs(character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    local isWeapon = part:FindFirstAncestorOfClass("Tool") ~= nil
-                    local isBody = not isWeapon
-
-                    local shouldApply = false
-                    if FFState.ApplyTo == "Character" then shouldApply = isBody
-                    elseif FFState.ApplyTo == "Weapon" then shouldApply = isWeapon
-                    elseif FFState.ApplyTo == "Both" then shouldApply = true end
-
-                    if shouldApply then
-                        if not OriginalMaterials[key][part] then
-                            OriginalMaterials[key][part] = {Material = part.Material, Color = part.Color}
-                        end
-                        part.Material = Enum.Material.ForceField
-                        part.Color = color
-                    else
-                        local orig = OriginalMaterials[key] and OriginalMaterials[key][part]
-                        if orig then
-                            part.Material = orig.Material
-                            part.Color = orig.Color
-                            OriginalMaterials[key][part] = nil
-                        end
-                    end
-
             local ItemESPSection = ESPSubPage:Section({Name = "Item ESP", Side = 2}) do
                 ItemESPSection:Toggle({
                     Name = "Enabled",
@@ -1998,8 +1944,153 @@ do
                     Max = 1,
                     Decimals = 0.01,
                     Callback = function(v) ItemESPState.ChamsFillTransparency = v end
-                })
+                }) do
+                    NewRender(function()
+                        local character = game.Players.LocalPlayer.Character
+                        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+
+                        if not ItemESPState.Enabled or not hrp or not next(ItemESPState.Items) then
+                            for _, data in pairs(ItemESPDrawings) do
+                                data.Text.Visible = false
+                            end
+                            for obj, hl in pairs(ItemESPHighlights) do
+                                hl.Enabled = false
+                            end
+                            return
+                        end
+
+                        local camera = workspace.CurrentCamera
+                        local myPos = hrp.Position
+                        local visibleNow = {}
+
+                        for _, obj in pairs(workspace:GetChildren()) do
+                            if not ItemESPState.Items[obj.Name] then continue end
+                            local part = ResolvePickupPart(obj)
+                            if not part then continue end
+
+                            local distance = (myPos - part.Position).Magnitude
+
+                            local screenPos, onScreen = camera:WorldToViewportPoint(part.Position + Vector3.new(0, 1.2, 0))
+                            if not onScreen then continue end
+
+                            local scale = 1 / (screenPos.Z * math.tan(math.rad(camera.FieldOfView * 0.5)) * 2) * 1000
+                            local textSize = math.clamp(math.floor(12 * (scale / 3.5)), 8, 18)
+
+                            local data = ItemESPDrawings[obj]
+                            if not data then
+                                local text = TrackDrawing(Drawing.new("Text"))
+                                text.Center = true
+                                text.ZIndex = 5
+                                text.OutlineColor = Color3.fromRGB(0, 0, 0)
+                                data = { Text = text }
+                                ItemESPDrawings[obj] = data
+                            end
+
+                            data.Text.Size = textSize
+                            data.Text.Outline = ESPState.Outline
+                            data.Text.Text = string.format("%s [%d]", obj.Name, math.floor(distance))
+                            data.Text.Color = ItemESPState.Color
+                            data.Text.Position = Vector2.new(screenPos.X, screenPos.Y)
+                            data.Text.Visible = true
+                            visibleNow[obj] = true
+
+                            if ItemESPState.Chams then
+                                local hl = ItemESPHighlights[obj]
+                                if not hl then
+                                    hl = Instance.new("Highlight")
+                                    hl.Name = obj.Name
+                                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                                    hl.Parent = ItemESPChamsFolder
+                                    ItemESPHighlights[obj] = hl
+                                end
+                                hl.Adornee = obj
+                                hl.FillColor = ItemESPState.ChamsColor
+                                hl.OutlineColor = ItemESPState.ChamsColor
+                                hl.FillTransparency = ItemESPState.ChamsFillTransparency
+                                hl.OutlineTransparency = 0
+                                hl.Enabled = true
+                            else
+                                local hl = ItemESPHighlights[obj]
+                                if hl then hl.Enabled = false end
+                            end
+                        end
+
+                        for obj, data in pairs(ItemESPDrawings) do
+                            if not visibleNow[obj] then
+                                data.Text.Visible = false
+                                local hl = ItemESPHighlights[obj]
+                                if hl then hl.Enabled = false end
+                            end
+                        end
+                    end)
+
+                    RegisterCleanup(function()
+                        for _, data in pairs(ItemESPDrawings) do
+                            pcall(data.Text.Remove, data.Text)
+                        end
+                        ItemESPDrawings = {}
+                        for _, hl in pairs(ItemESPHighlights) do
+                            pcall(hl.Destroy, hl)
+                        end
+                        ItemESPHighlights = {}
+                        pcall(ItemESPChamsFolder.Destroy, ItemESPChamsFolder)
+                    end)
+                end
             end
+
+            RegisterCleanup(function()
+                for char, hl in pairs(ActiveHighlights) do
+                    pcall(hl.Destroy, hl)
+                end
+                ActiveHighlights = {}
+                pcall(ChamsFolder.Destroy, ChamsFolder)
+            end)
+        end
+    end
+
+    do
+        local CharSubPage = VisualsPage:SubPage({Name = "Character", Columns = 2})
+
+        local FFState = {
+            Enabled = false,
+            ApplyTo = "Character",
+            TeamColor = true,
+            Color = Color3.fromRGB(0, 170, 255),
+            SelfOnly = true,
+        }
+
+        local OriginalMaterials = {}
+        local ActivePlayers = {}
+
+        local function ApplyForceField(character, color)
+            if not character then return end
+            local key = character
+            if not OriginalMaterials[key] then OriginalMaterials[key] = {} end
+
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    local isWeapon = part:FindFirstAncestorOfClass("Tool") ~= nil
+                    local isBody = not isWeapon
+
+                    local shouldApply = false
+                    if FFState.ApplyTo == "Character" then shouldApply = isBody
+                    elseif FFState.ApplyTo == "Weapon" then shouldApply = isWeapon
+                    elseif FFState.ApplyTo == "Both" then shouldApply = true end
+
+                    if shouldApply then
+                        if not OriginalMaterials[key][part] then
+                            OriginalMaterials[key][part] = {Material = part.Material, Color = part.Color}
+                        end
+                        part.Material = Enum.Material.ForceField
+                        part.Color = color
+                    else
+                        local orig = OriginalMaterials[key] and OriginalMaterials[key][part]
+                        if orig then
+                            part.Material = orig.Material
+                            part.Color = orig.Color
+                            OriginalMaterials[key][part] = nil
+                        end
+                    end
                 end
             end
         end
@@ -3172,99 +3263,6 @@ do
                 end
             end)
         end
-    end
-
-    do
-        NewRender(function()
-            local character = game.Players.LocalPlayer.Character
-            local hrp = character and character:FindFirstChild("HumanoidRootPart")
-
-            if not ItemESPState.Enabled or not hrp or not next(ItemESPState.Items) then
-                for _, data in pairs(ItemESPDrawings) do
-                    data.Text.Visible = false
-                end
-                for obj, hl in pairs(ItemESPHighlights) do
-                    hl.Enabled = false
-                end
-                return
-            end
-
-            local camera = workspace.CurrentCamera
-            local myPos = hrp.Position
-            local visibleNow = {}
-
-            for _, obj in pairs(workspace:GetChildren()) do
-                if not ItemESPState.Items[obj.Name] then continue end
-                local part = ResolvePickupPart(obj)
-                if not part then continue end
-
-                local distance = (myPos - part.Position).Magnitude
-
-                local screenPos, onScreen = camera:WorldToViewportPoint(part.Position + Vector3.new(0, 1.2, 0))
-                if not onScreen then continue end
-
-                local scale = 1 / (screenPos.Z * math.tan(math.rad(camera.FieldOfView * 0.5)) * 2) * 1000
-                local textSize = math.clamp(math.floor(12 * (scale / 3.5)), 8, 18)
-
-                local data = ItemESPDrawings[obj]
-                if not data then
-                    local text = TrackDrawing(Drawing.new("Text"))
-                    text.Center = true
-                    text.ZIndex = 5
-                    text.OutlineColor = Color3.fromRGB(0, 0, 0)
-                    data = { Text = text }
-                    ItemESPDrawings[obj] = data
-                end
-
-                data.Text.Size = textSize
-                data.Text.Outline = ESPState.Outline
-                data.Text.Text = string.format("%s [%d]", obj.Name, math.floor(distance))
-                data.Text.Color = ItemESPState.Color
-                data.Text.Position = Vector2.new(screenPos.X, screenPos.Y)
-                data.Text.Visible = true
-                visibleNow[obj] = true
-
-                if ItemESPState.Chams then
-                    local hl = ItemESPHighlights[obj]
-                    if not hl then
-                        hl = Instance.new("Highlight")
-                        hl.Name = obj.Name
-                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                        hl.Parent = ItemESPChamsFolder
-                        ItemESPHighlights[obj] = hl
-                    end
-                    hl.Adornee = obj
-                    hl.FillColor = ItemESPState.ChamsColor
-                    hl.OutlineColor = ItemESPState.ChamsColor
-                    hl.FillTransparency = ItemESPState.ChamsFillTransparency
-                    hl.OutlineTransparency = 0
-                    hl.Enabled = true
-                else
-                    local hl = ItemESPHighlights[obj]
-                    if hl then hl.Enabled = false end
-                end
-            end
-
-            for obj, data in pairs(ItemESPDrawings) do
-                if not visibleNow[obj] then
-                    data.Text.Visible = false
-                    local hl = ItemESPHighlights[obj]
-                    if hl then hl.Enabled = false end
-                end
-            end
-        end)
-
-        RegisterCleanup(function()
-            for _, data in pairs(ItemESPDrawings) do
-                pcall(data.Text.Remove, data.Text)
-            end
-            ItemESPDrawings = {}
-            for _, hl in pairs(ItemESPHighlights) do
-                pcall(hl.Destroy, hl)
-            end
-            ItemESPHighlights = {}
-            pcall(ItemESPChamsFolder.Destroy, ItemESPChamsFolder)
-        end)
     end
 
     do
