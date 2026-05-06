@@ -114,6 +114,19 @@ loadstring(game:HttpGet("https://github.com/catthatdrinkssprite/moonshine/raw/ma
   - friend check and player whitelist
 - **anti riot shield** — removes riot shield parts from all players' characters
 
+### blatant
+
+- **ragebot** — fully automated combat — acquires targets, aims, and fires with no input needed
+  - automatically switch weapons if current one is empty
+  - automatically reload weapons if the current ones magazine is empty
+  - wall check (respects removed doors server-side), death check, forcefield check
+  - team and inmate type filters (guards, inmates, criminals / regular, aggressive, arrestable)
+  - friend check with player whitelist dropdown
+
+### players
+
+- **teleportation** — teleports to any selected player
+
 ### watermark
 
 - **live stats** — watermark displays real-time fps and ping
