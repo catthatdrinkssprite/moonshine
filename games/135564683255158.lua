@@ -4309,7 +4309,7 @@ do
             ActionsSection:Button():Add("Teleport", function()
                 if PlayersState.TeleportCooldown == false then
                     game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players[PlayersState.SelectedPlayer].Character.HumanoidRootPart.CFrame
-                    Library:Notification("Teleport", "You are able to teleport again in 15 seconds, the wait is due to the anticheat flagging if you teleport too much.", 15)
+                    Library:Notification("Teleport", "You are able to teleport again in 15 seconds, the wait is due to the anticheat flagging if you teleport too often.", 15)
                     PlayersState.TeleportCooldown = true
                     task.wait(15)
                     PlayersState.TeleportCooldown = false
