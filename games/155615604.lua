@@ -18,6 +18,7 @@ do
     local WorldPage = Window:Page({Name = "World", SubPages = true})
     local MiscPage = Window:Page({Name = "Misc", Columns = 2})
     local BlatantPage = Window:Page({Name = "Blatant", Columns = 2})
+    local PlayersPage = Window:Page({Name = "Players", Columns = 2})
     local SettingsPage = Library:CreateSettingsPage(Window, Watermark, KeybindList)
 
     local RagebotForcedTarget = nil
@@ -4267,6 +4268,54 @@ do
                 RagebotMuzzleOrigin = nil
             end
         end)
+    end
+
+    do
+        local PlayersState = {
+            SelectedPlayer = "",
+            TeleportCooldown = false
+        }
+
+        local PlayersSection = PlayersPage:Section({Name = "Players", Side = 1}) do
+            local SelectedPlayer = PlayersSection:Dropdown({
+                Name = "Selected Player",
+                Flag = "PlayersSelectedPlayer",
+                Multi = false,
+                Callback = function(callback) PlayersState.SelectedPlayer = callback end
+            }) do
+                local function AddPlayer(player)
+                    if player.Name ~= game.Players.LocalPlayer.Name then
+                        SelectedPlayer:Add(player.Name)
+                    end
+                end
+
+                local function RemovePlayer(player)
+                    if player.Name ~= game.Players.LocalPlayer.Name then
+                        SelectedPlayer:Remove(player.Name)
+                    end
+                end
+                
+                for _, player in pairs(game.Players:GetPlayers()) do
+                    AddPlayer(player)
+                end
+
+                game.Players.PlayerAdded:Connect(AddPlayer)
+
+                game.Players.PlayerRemoving:Connect(RemovePlayer)
+            end
+        end
+
+        local ActionsSection = PlayersPage:Section({Name = "Actions", Side = 2}) do
+            ActionsSection:Button():Add("Teleport", function()
+                if PlayersState.TeleportCooldown == false then
+                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players[PlayersState.SelectedPlayer].Character.HumanoidRootPart.CFrame
+                    Library:Notification("Teleport", "You are able to teleport again in 15 seconds, the wait is due to the anticheat flagging if you teleport too much.", 15)
+                    PlayersState.TeleportCooldown = true
+                    task.wait(15)
+                    PlayersState.TeleportCooldown = false
+                end
+            end)
+        end
     end
 
     local OriginalUnload = Library.Unload
