@@ -4283,25 +4283,19 @@ do
                 Multi = false,
                 Callback = function(callback) PlayersState.SelectedPlayer = callback end
             }) do
-                local function AddPlayer(player)
+                for _, player in pairs(game.Players:GetPlayers()) do
                     if player.Name ~= game.Players.LocalPlayer.Name then
                         SelectedPlayer:Add(player.Name)
                     end
                 end
 
-                local function RemovePlayer(player)
-                    if player.Name ~= game.Players.LocalPlayer.Name then
-                        SelectedPlayer:Remove(player.Name)
-                    end
-                end
-                
-                for _, player in pairs(game.Players:GetPlayers()) do
-                    AddPlayer(player)
-                end
+                TrackConnection(game.Players.PlayerAdded:Connect(function(player)
+                    SelectedPlayer:Add(player.Name)
+                end))
 
-                game.Players.PlayerAdded:Connect(AddPlayer)
-
-                game.Players.PlayerRemoving:Connect(RemovePlayer)
+                TrackConnection(game.Players.PlayerRemoving:Connect(function(player)
+                    SelectedPlayer:Remove(player.Name)
+                end))
             end
         end
 
