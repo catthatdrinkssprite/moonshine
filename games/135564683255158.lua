@@ -8,7 +8,7 @@ local Window = Library:Window({
 
 Library.MenuKeybind = tostring(Enum.KeyCode.Delete)
 
-local Watermark = Library:Watermark("moonshine | Prison Life")
+local Watermark = Library:Watermark("moonshine | Prison Life | gg/DPBtncwaEm")
 local KeybindList = Library:KeybindList()
 
 do

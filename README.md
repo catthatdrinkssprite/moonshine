@@ -4,6 +4,8 @@
 
 ![moonshine](moonshine/images/cover.png)
 
+[discord](https://discord.gg/DPBtncwaEm)
+
 ---
 
 ## 🎮 supported games
