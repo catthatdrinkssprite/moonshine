@@ -32,6 +32,7 @@ local Assets = {
     ["moonshine/sounds/cod.mp3"]            = "moonshine/sounds/cod.mp3",
     ["moonshine/sounds/copperbell.mp3"]     = "moonshine/sounds/copperbell.mp3",
     ["moonshine/sounds/crowbar.mp3"]        = "moonshine/sounds/crowbar.mp3",
+    ["moonshine/sounds/headshot.mp3"]        = "moonshine/sounds/headshot.mp3",
     ["moonshine/sounds/knob.mp3"]           = "moonshine/sounds/knob.mp3",
     ["moonshine/sounds/minecraft orb.mp3"]  = "moonshine/sounds/minecraft%20orb.mp3",
     ["moonshine/sounds/neverlose.mp3"]      = "moonshine/sounds/neverlose.mp3",
