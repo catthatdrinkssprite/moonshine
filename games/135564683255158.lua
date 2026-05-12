@@ -2770,9 +2770,13 @@ do
                 Default = false,
                 Callback = function(v) PingWarningEnabled = v end
             })
+        end
+    end
 
-            PingWarning:Toggle({
-                Name = "Killfeed Notifications",
+    do
+        local KillfeedNotifications = MiscPage:Section({Name = "Killfeed Notifications", Side = 2}) do
+            KillfeedNotifications:Toggle({
+                Name = "Enabled",
                 ToolTip = {
                     Name = "Killfeed Notifications",
                     Description = "Shows a notification for every new killfeed entry"
