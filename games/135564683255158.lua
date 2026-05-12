@@ -937,6 +937,7 @@ do
                 ["cod.mp3"] = getcustomasset("moonshine/sounds/cod.mp3"),
                 ["copperbell.mp3"] = getcustomasset("moonshine/sounds/copperbell.mp3"),
                 ["crowbar.mp3"] = getcustomasset("moonshine/sounds/crowbar.mp3"),
+                ["headshot.mp3"] = getcustomasset("moonshine/sounds/headshot.mp3"),
                 ["knob.mp3"] = getcustomasset("moonshine/sounds/knob.mp3"),
                 ["minecraft orb.mp3"] = getcustomasset("moonshine/sounds/minecraft orb.mp3"),
                 ["neverlose.mp3"] = getcustomasset("moonshine/sounds/neverlose.mp3"),
