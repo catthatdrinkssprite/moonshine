@@ -8,7 +8,7 @@ local Window = Library:Window({
 
 Library.MenuKeybind = tostring(Enum.KeyCode.Delete)
 
-local Watermark = Library:Watermark("moonshine | Prison Life | gg/DPBtncwaEm")
+local Watermark = Library:Watermark("loading...")
 local KeybindList = Library:KeybindList()
 
 do
@@ -133,7 +133,7 @@ do
 
             local ping = game.Players.LocalPlayer:GetNetworkPing()
             local pingMs = math.floor(ping * 1000)
-            Watermark:SetText(string.format("moonshine | Prison Life | %d FPS | %dms", LastFPS, pingMs))
+            Watermark:SetText(string.format("moonshine | Prison Life | %d FPS | %dms | gg/DPBtncwaEm", LastFPS, pingMs))
 
             if PingWarningEnabled and ping >= PingThreshold and (now - LastPingWarning) >= PingCooldown then
                 LastPingWarning = now
