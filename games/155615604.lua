@@ -1163,7 +1163,7 @@ do
                     Flag = "HitSoundsSound",
                     Default = "rust.mp3",
                     Multi = false,
-                    Items = {"12.mp3", "agpa2.mp3", "basshit.mp3", "bell.mp3", "blizzard.mp3", "bubble.mp3", "chockpro.mp3", "cod.mp3", "copperbell.mp3", "crowbar.mp3", "knob.mp3", "minecraft orb.mp3", "neverlose.mp3", "rust.mp3", "skeet.mp3"},
+                    Items = {"12.mp3", "agpa2.mp3", "basshit.mp3", "bell.mp3", "blizzard.mp3", "bubble.mp3", "chockpro.mp3", "cod.mp3", "copperbell.mp3", "crowbar.mp3", "headshot.mp3", "knob.mp3", "minecraft orb.mp3", "neverlose.mp3", "rust.mp3", "skeet.mp3"},
                     Callback = function(v) HitSoundState.Sound = v end
                 })
 
@@ -1199,7 +1199,7 @@ do
                     Flag = "KillSoundsSound",
                     Default = "minecraft orb.mp3",
                     Multi = false,
-                    Items = {"12.mp3", "agpa2.mp3", "basshit.mp3", "bell.mp3", "blizzard.mp3", "bubble.mp3", "chockpro.mp3", "cod.mp3", "copperbell.mp3", "crowbar.mp3", "knob.mp3", "minecraft orb.mp3", "neverlose.mp3", "rust.mp3", "skeet.mp3"},
+                    Items = {"12.mp3", "agpa2.mp3", "basshit.mp3", "bell.mp3", "blizzard.mp3", "bubble.mp3", "chockpro.mp3", "cod.mp3", "copperbell.mp3", "crowbar.mp3", "headshot.mp3", "knob.mp3", "minecraft orb.mp3", "neverlose.mp3", "rust.mp3", "skeet.mp3"},
                     Callback = function(v) KillSoundState.Sound = v end
                 })
 
